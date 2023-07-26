@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "sanvad_app",
+    "yammer_app",
+    "capex_app",
     "rest_framework",
     "corsheaders",
 ]
@@ -78,14 +80,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "sanvad_project.wsgi.application"
 
-
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "sanvad_test",
+        "NAME": "sanvad_dev",
         "USER": "postgres",
         "PASSWORD": "root",
         "HOST": "localhost",
