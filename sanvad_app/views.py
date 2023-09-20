@@ -5,14 +5,18 @@ from sanvad_app.models import UserManagement
 from sanvad_app.serializers import userManagementSerializer
 from rest_framework import status
 import requests
+from rest_framework.pagination import PageNumberPagination
 
 
 # GET ALL DATA.
 @api_view(["GET"])
 def all_data(request):
+    paginator = PageNumberPagination()
+    paginator.page_size = 10
     obj = UserManagement.objects.all()
-    serializers = userManagementSerializer(obj, many=True)
-    return Response(serializers.data)
+    result_page = paginator.paginate_queryset(obj, request)
+    serializers = userManagementSerializer(result_page, many=True)
+    return paginator.get_paginated_response(serializers.data)
 
 
 @api_view(["GET", "PUT", "DELETE"])

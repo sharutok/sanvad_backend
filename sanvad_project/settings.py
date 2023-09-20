@@ -1,3 +1,5 @@
+import os
+
 """
 Django settings for sanvad_project project.
 
@@ -40,8 +42,11 @@ INSTALLED_APPS = [
     "sanvad_app",
     "yammer_app",
     "capex_app",
+    "conference_app",
     "rest_framework",
     "corsheaders",
+    "visitors_app",
+    "ticket_app",
 ]
 
 MIDDLEWARE = [
@@ -132,3 +137,12 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+REST_FRAMEWORK = {
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    "PAGE_SIZE": 10,
+}
+
+STATIC_URL = "/static/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"

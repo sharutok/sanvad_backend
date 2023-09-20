@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from capex_app.models import Capex
-from capex_app.serializers import CapexSerializer
+from capex_app.models import Capex, Capex1
+from capex_app.serializers import CapexSerializer, Capex1Serializer
 from rest_framework import status
 import pandas as pd
 import requests
@@ -64,3 +64,17 @@ def get_by_id(request, id):
             return Response(
                 {"data": serializers.data, "status_code": status.HTTP_200_OK}
             )
+
+
+@api_view(["POST"])
+def create(request):
+    try:
+        serializers = Capex1Serializer(data=request.data)
+        if serializers.is_valid():
+            serializers.save()
+            return Response({"mess": "created", status: 200})
+        else:
+            return Response({"error": serializers.errors, "status_code": 400})
+    except e:
+        print(e)
+        return Response({"error": e, "status_code": 400})
