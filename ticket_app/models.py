@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.fields import ArrayField, JSONField
 import uuid
 
 # Create your models here.
@@ -17,19 +17,23 @@ class TicketSystemModel(models.Model):
     tkt_title = models.CharField(max_length=50, null=True)
     tkt_type = models.CharField(max_length=50, null=True)
     req_type = models.CharField(max_length=50, null=True)
-    tkt_description = models.CharField(max_length=50, null=True)
-    tkt_date = models.CharField(max_length=50, null=True)
+    tkt_description = models.CharField(max_length=350, null=True)
+    # tkt_date = models.CharField(max_length=50, null=True)
     tkt_status = models.CharField(max_length=50, null=True)
     tkt_current_at = models.CharField(max_length=50, null=True)
-    tkt_docs = ArrayField(models.CharField(max_length=150), null=True)
+    # tkt_docs = ArrayField(models.CharField(max_length=150), null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    approver_1_emp_no = models.CharField(max_length=50, null=True)
-    approver_1_status = models.CharField(max_length=100, null=True)
-    approver_2_emp_no = models.CharField(max_length=50, null=True)
-    approver_2_status = models.CharField(max_length=100, null=True)
-    approver_3_emp_no = models.CharField(max_length=50, null=True)
-    approver_3_status = models.CharField(max_length=100, null=True)
+    # approver_1_emp_no = models.CharField(max_length=50, null=True)
+    # approver_1_status = models.CharField(max_length=100, null=True)
+    # approver_2_emp_no = models.CharField(max_length=50, null=True)
+    # approver_2_status = models.CharField(max_length=100, null=True)
+    # approver_3_emp_no = models.CharField(max_length=50, null=True)
+    # approver_3_status = models.CharField(max_length=100, null=True)
+    severity = models.IntegerField(default=0)
+    delete_flag = models.BooleanField(default=False)
+    # approvals = models.JSONField()
+    approval_flow = models.JSONField(default=list)
 
     def __str__(self):
         return self.id
@@ -43,9 +47,12 @@ class TicketFileUploadModel(models.Model):
     ticket_ref_id = models.UUIDField(editable=True)
     file_name = models.CharField(max_length=100, null=True)
     user_file = models.FileField(blank=True, null=True, upload_to=upload_path)
+    delete_flag = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.id
+        return self.ticket_ref_id
 
     class Meta:
         db_table = "tkt_file_uploads"

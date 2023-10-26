@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from django.shortcuts import render
@@ -14,12 +15,20 @@ from rest_framework.pagination import PageNumberPagination
 @api_view(["GET"])
 def all_data(request):
     paginator = PageNumberPagination()
-    paginator.page_size = 5
-    obj = ConferenceBooking.objects.all()
+    search_query = request.GET["search"]
+    paginator.page_size = 10
+    obj = (
+        ConferenceBooking.objects.all()
+        .filter(
+            Q(conf_room__icontains=search_query)
+            | Q(conf_by__icontains=search_query)
+            | Q(meeting_about__icontains=search_query)
+        )
+        .order_by("-updated_at")
+    )
     result_page = paginator.paginate_queryset(obj, request)
     serializers = ConferenceBookingSerializer(result_page, many=True)
     return paginator.get_paginated_response(serializers.data)
-    # return Response(serializers.data)
 
 
 # GET & DELETE BY ID

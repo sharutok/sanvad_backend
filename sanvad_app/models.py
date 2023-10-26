@@ -21,8 +21,8 @@ class UserManagement(models.Model):
     plant_name = models.CharField(max_length=150, null=True)
     manager_code = models.CharField(max_length=150, null=True)
     manager = models.CharField(max_length=150, null=True)
-    # job_type = models.IntegerField(null=True)
-    # employment_type = models.IntegerField(null=True)
+    ess_function = models.CharField(max_length=150, null=True)
+    ess_location = models.CharField(max_length=150, null=True)
     cost_code = models.CharField(max_length=150, null=True)
     cost_center_desc = models.CharField(max_length=150, null=True)
     job_status = models.CharField(max_length=150, null=True)
@@ -41,3 +41,17 @@ class UserManagement(models.Model):
 
     class Meta:
         db_table = "user_management"
+
+
+class EmployeeMappings(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
+    ess_function = models.CharField(max_length=150, null=True)
+    ess_location = models.CharField(max_length=150, null=True)
+    department = models.CharField(max_length=150, null=True)
+    plant_name = models.CharField(max_length=150, null=True)
+
+    def __str__(self):
+        return self.ess_function
+
+    class Meta:
+        db_table = "employee_mappings"

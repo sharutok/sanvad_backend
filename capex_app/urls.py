@@ -1,9 +1,18 @@
 from django.urls import path, include
-from capex_app.views import read_data_excel, get_all_data, get_by_id, create
+from capex_app.views import (
+    read_data_excel,
+    get_all_budget_data,
+    get_by_capex_id,
+    get_by_budget_id,
+    create_new_capex,
+    get_all_capex_data,
+)
 
 urlpatterns = [
     path("read-data-excel/", read_data_excel, name="read-data-excel"),
-    path("get-all-data/", get_all_data, name="get-all-data"),
-    path("<uuid:id>/", get_by_id, name="get-by-id"),
-    path("create/", create, name="create"),
+    path("get-all-budget-data/", get_all_budget_data, name="get-all-budget-data"),
+    path("get-all-capex-data/", get_all_capex_data, name="get-all-capex-data"),
+    path("data-budget/<uuid:id>/", get_by_budget_id, name="get-by-budget-id"),
+    path("data-capex/<uuid:id>/", get_by_capex_id, name="get-by-capex-id"),
+    path("create/", create_new_capex, name="create"),
 ]

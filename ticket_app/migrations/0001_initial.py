@@ -6,30 +6,40 @@ import uuid
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='TicketSystemModel',
+            name="TicketSystemModel",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
-                ('emp_no', models.CharField(max_length=150, null=True)),
-                ('ticket_no', models.IntegerField()),
-                ('tkt_title', models.CharField(max_length=50, null=True)),
-                ('tkt_type', models.CharField(max_length=50, null=True)),
-                ('tkt_description', django.contrib.postgres.fields.ArrayField(base_field=models.CharField(max_length=150), null=True, size=None)),
-                ('tkt_requester', models.CharField(max_length=50, null=True)),
-                ('tkt_date', models.CharField(max_length=50, null=True)),
-                ('tkt_status', models.CharField(max_length=50, null=True)),
-                ('tkt_current_at', models.CharField(max_length=50, null=True)),
-                ('tkt_docs', models.CharField(max_length=50, null=True)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, primary_key=True, serialize=False
+                    ),
+                ),
+                ("emp_no", models.CharField(max_length=150, null=True)),
+                ("ticket_no", models.IntegerField()),
+                ("tkt_title", models.CharField(max_length=50, null=True)),
+                ("tkt_type", models.CharField(max_length=50, null=True)),
+                (
+                    "tkt_description",
+                    django.contrib.postgres.fields.ArrayField(
+                        base_field=models.CharField(max_length=150),
+                        null=True,
+                        size=None,
+                    ),
+                ),
+                ("tkt_requester", models.CharField(max_length=50, null=True)),
+                ("tkt_date", models.CharField(max_length=50, null=True)),
+                ("tkt_status", models.CharField(max_length=50, null=True)),
+                ("tkt_current_at", models.CharField(max_length=50, null=True)),
+                ("tkt_docs", models.CharField(max_length=50, null=True)),
             ],
             options={
-                'db_table': 'tkt_system',
+                "db_table": "tkt_system",
             },
         ),
     ]

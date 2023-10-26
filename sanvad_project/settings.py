@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     "corsheaders",
     "visitors_app",
     "ticket_app",
+    "utils_app",
+    "workflow_app",
 ]
 
 MIDDLEWARE = [

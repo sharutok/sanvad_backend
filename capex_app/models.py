@@ -1,6 +1,10 @@
-from django.contrib.postgres.fields import ArrayField
 from django.db import models
 import uuid
+from django.contrib.postgres.fields import ArrayField
+
+
+def upload_path(instance, filename):
+    return "/".join(["ticket", str(instance.id), filename])
 
 
 class Capex(models.Model):
@@ -33,7 +37,7 @@ class Capex(models.Model):
 
 class Capex1(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
-    # capex_id = models.UUIDField(editable=True)
+    budget_id = models.UUIDField(default=uuid.uuid4, editable=True)
     nature_of_requirement = models.CharField(max_length=50, null=True)
     purpose = models.CharField(max_length=50, null=True)
     payback_period = models.CharField(max_length=50, null=True)
@@ -50,10 +54,11 @@ class Capex1(models.Model):
     comment5 = models.CharField(max_length=100, null=True)
     comment6 = models.CharField(max_length=100, null=True)
     comment7 = models.CharField(max_length=100, null=True)
-    attachment_file_name = models.CharField(max_length=100, null=True)
-    attachment_loc_path_name = models.CharField(max_length=100, null=True)
+    user_file = models.FileField(blank=True, null=True, upload_to=upload_path)
+    comment6 = models.CharField(max_length=100, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    asset_listings = models.CharField(max_length=1000, null=True)
 
     def __str__(self):
         return self.capex_id

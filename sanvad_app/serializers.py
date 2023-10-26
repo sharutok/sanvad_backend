@@ -17,3 +17,6 @@ class userManagementSerializer(serializers.ModelSerializer):
             return len(object.module_permission)
         else:
             return 0
+
+    # def create(self,object):
+    #     return True
