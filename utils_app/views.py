@@ -1,5 +1,4 @@
 from django.shortcuts import render
-import os
 import pandas
 import json
 from rest_framework.response import Response
@@ -8,6 +7,9 @@ import mimetypes
 from django.http import HttpResponse
 from wsgiref.util import FileWrapper
 import redis
+from django.http import FileResponse
+from django.conf import settings
+import os
 
 # Create your views here.
 
@@ -46,6 +48,24 @@ def download_excel(request):
 
 
 @api_view(["GET"])
-def wether_temp(request):
+def weather_temp(request):
     r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     return Response({"data": json.loads(r.get("weather_temp"))})
+
+
+@api_view(["GET"])
+def serve_files(request):
+    file_path = os.path.join(
+        settings.MEDIA_ROOT,
+        "ticket/f41e98af-483d-4b2b-b118-cabc8c5b821b/Distributor_application_16-Oct-2023.pdf",
+    )
+    print(settings.MEDIA_ROOT)
+    # Check if the file exists
+    if os.path.exists(file_path):
+        with open(file_path, "rb") as pdf_file:
+            response = FileResponse(pdf_file, as_attachment=True)
+            return response
+    else:
+        # Handle the case where the file does not exist
+        print("File not found")
+        return HttpResponse("File not found", status=404)

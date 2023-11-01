@@ -37,7 +37,7 @@ class Capex(models.Model):
 
 class Capex1(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
-    budget_id = models.UUIDField(default=uuid.uuid4, editable=True)
+    budget_id = models.UUIDField(editable=True)
     nature_of_requirement = models.CharField(max_length=50, null=True)
     purpose = models.CharField(max_length=50, null=True)
     payback_period = models.CharField(max_length=50, null=True)
@@ -46,6 +46,7 @@ class Capex1(models.Model):
     requisition_date = models.DateField(null=True)
     total_cost = models.IntegerField(null=True)
     site_delivery_date = models.DateField(null=True)
+    capex_status = models.CharField(max_length=50, null=True)
     installation_date = models.DateField(null=True)
     comment1 = models.CharField(max_length=100, null=True)
     comment2 = models.CharField(max_length=100, null=True)
@@ -59,6 +60,9 @@ class Capex1(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     asset_listings = models.CharField(max_length=1000, null=True)
+    flow_type = models.CharField(max_length=50, null=True)
+    approval_flow = models.JSONField(default=list)
+    capex_current_at = models.CharField(max_length=50, null=True)
 
     def __str__(self):
         return self.capex_id
