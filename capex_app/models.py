@@ -4,7 +4,11 @@ from django.contrib.postgres.fields import ArrayField
 
 
 def upload_path(instance, filename):
-    return "/".join(["ticket", str(instance.id), filename])
+    return "/".join(["capex", str(instance.id), filename])
+
+
+def budget_upload_path(instance, filename):
+    return "/".join(["budget_upload", str(instance.id), filename])
 
 
 class Capex(models.Model):
@@ -27,6 +31,8 @@ class Capex(models.Model):
     remarks = models.CharField(max_length=50, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    delete_flag = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False)
 
     def __str__(self):
         return self.budget_no
@@ -62,10 +68,25 @@ class Capex1(models.Model):
     asset_listings = models.CharField(max_length=1000, null=True)
     flow_type = models.CharField(max_length=50, null=True)
     approval_flow = models.JSONField(default=list)
+    capex_raised_by = models.CharField(max_length=50, null=True)
     capex_current_at = models.CharField(max_length=50, null=True)
+    delete_flag = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.capex_id
+        return self.id
 
     class Meta:
         db_table = "capex_data_master"
+
+
+class UploadBudget(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
+    budget_file = models.FileField(blank=True, null=True, upload_to=budget_upload_path)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.budget_file
+
+    class Meta:
+        db_table = "upload_budget"

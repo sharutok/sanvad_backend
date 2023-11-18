@@ -31,43 +31,40 @@ def all_data(request):
     paginator = PageNumberPagination()
     _search_query = request.GET["search"]
     _emp_no = str(request.GET["woosee"])
-    print(_emp_no)
+    # check if the user is admin or just user
+    _emp_no = (
+        ""
+        if _emp_no == ticket_flow_user_for_systems("ticket_admin_system")
+        else _emp_no
+    )
     paginator.page_size = 10
     raw_sql_query = """
-                select
-	            ts.*,
-            	concat(substring(um.first_name,
-            	1,
-            	1),
-            	substring( um.last_name,
-            	1,
-            	1)) tkt_current_at,
-            	concat(um2.first_name,' ',
-            	um2.last_name) requester_emp_no,
-             	to_char(ts.created_at::timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD-MM-YYYY hh:mi AM') created_at
-                from
-                	tkt_system ts
-                left join user_management um on
-                	ts.tkt_current_at = um.emp_no
-                left join user_management um2 on
-                	ts.requester_emp_no = um2.emp_no
-                where
-                	(tkt_current_at like '%{}%'
-                		or requester_emp_no like '%{}%')
-                	and 
-                (
-                ticket_no::text like '%{}%'
-                		and ticket_no::text like '%{}%'
-                		and tkt_type like '%{}%'
-                		and requester_emp_no like '%{}%'
-                		and tkt_current_at like '%{}%' )
-                order by
-            	ticket_no desc
+        select
+        ts.*,
+        concat(substring(um.first_name,1,1),
+        substring( um.last_name,1,1)) tkt_current_at,
+        concat(um2.first_name,' ',
+        um2.last_name) requester_emp_no,
+        to_char(ts.created_at::timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD-MM-YYYY hh:mi AM') created_at
+        from
+        	tkt_system ts
+        left join user_management um on
+        	ts.tkt_current_at = um.emp_no
+        left join user_management um2 on
+        	ts.requester_emp_no = um2.emp_no 
+        	where 
+        	(tkt_current_at like '%{}%' 
+        	or requester_emp_no like '%{}%')
+         and
+        	( ticket_no::text like '%{}%'
+            or tkt_type like '%{}%'
+            or req_type like '%{}%'
+            )
+            and ts.delete_flag = false
+        	order by ts.created_at desc;
     """.format(
         _emp_no,
         _emp_no,
-        _search_query,
-        _search_query,
         _search_query,
         _search_query,
         _search_query,
@@ -88,6 +85,9 @@ def data_by_id(request, id):
         case "GET":
             obj = TicketSystemModel.objects.get(id=id)
             form_serializers = TicketSytemSerializer(obj)
+            view_access = ticket_components_view_access(
+                request.GET["woosee"], form_serializers.data
+            )
 
             user_info = UserManagement.objects.get(
                 emp_no=form_serializers.data["requester_emp_no"]
@@ -117,17 +117,16 @@ def data_by_id(request, id):
 
             obj = TicketFileUploadModel.objects.filter(ticket_ref_id=id)
             upload_serializers = TicketFileUploadSerializer(obj, many=True)
-
             return Response(
                 {
                     "user_info": user_info,
                     "form_data": form_serializers.data,
                     "upload_data": upload_serializers.data,
                     "status_code": status.HTTP_200_OK,
+                    "view_access": view_access,
                 }
             )
         case "PUT":
-            print(request.data["tkt_status"])
             if request.data["tkt_status"] != ticket_wf_status[3]:
                 print(request.data["tkt_status"])
                 try:
@@ -252,7 +251,7 @@ def data_by_id(request, id):
                                                 obj,
                                                 data={
                                                     "tkt_current_at": ticket_flow_user_for_infra(
-                                                        "req1" "ticket_admin_infra"
+                                                        "req1", "ticket_admin_infra"
                                                     ),
                                                     "tkt_status": ticket_wf_status[0]
                                                     if request.data["approver_status"]
@@ -438,8 +437,23 @@ def data_by_id(request, id):
                                             "severity": request.data["severity"],
                                         },
                                     )
+                                    print(request.data)
                                     if serializers.is_valid():
-                                        serializers.save()
+                                        obj = serializers.save()
+                                        n = str(request.data["file_count"])
+                                        if n >= "0":
+                                            for i in range(0, int(n)):
+                                                file = "file{}".format(i + 1)
+                                                data = {
+                                                    "ticket_ref_id": obj.id,
+                                                    "user_file": request.data[file],
+                                                    "filename": request.data[file],
+                                                }
+                                                queryset = TicketFileUploadSerializer(
+                                                    data=data
+                                                )
+                                                if queryset.is_valid():
+                                                    queryset.save()
 
                                     obj_data[
                                         "next_approver"
@@ -517,6 +531,7 @@ def data_by_id(request, id):
                     # EXECUTE THE QUERY WITH THE DYNAMIC VALUES
 
                     return Response({"status_code": status.HTTP_200_OK})
+                    # return Response({"status_code": 202})
                 except Exception as e:
                     print(e)
                     return Response(
@@ -548,49 +563,53 @@ def create(request):
     try:
         _ticket_ref_id = uuid.uuid4()
         requester_emp_no = request.data["requester_emp_no"]
+
         # whose your manager
         user_info = UserManagement.objects.get(emp_no=requester_emp_no)
         Userserializers = userManagementSerializer(user_info)
-
-        request.data["id"] = _ticket_ref_id
-        request.data["tkt_status"] = ticket_wf_status[0]
-        request.data["tkt_current_at"] = Userserializers.data["manager_code"]
-
+        users_manager = Userserializers.data["manager_code"]
+        _data = {}
         match request.data["tkt_type"]:
             case "IT INFRA":
                 if request.data["req_type"] == "ISSUES":
-                    request.data["tkt_current_at"] = ticket_flow_user_for_infra(
+                    _data["tkt_current_at"] = ticket_flow_user_for_infra(
                         "req1", "ticket_admin_infra"
                     )
+                else:
+                    _data["tkt_current_at"] = users_manager
 
-        Ticketserializers = TicketSytemSerializer(data=request.data)
-
+        Ticketserializers = TicketSytemSerializer(
+            data={
+                "tkt_current_at": users_manager,
+                "tkt_title": request.data["tkt_title"],
+                "tkt_type": request.data["tkt_type"],
+                "req_type": request.data["req_type"],
+                "tkt_description": request.data["tkt_description"],
+                "requester_emp_no": request.data["requester_emp_no"],
+            }
+        )
         if Ticketserializers.is_valid():
-            Ticketserializers.save()
-
+            obj = Ticketserializers.save()
             # UPLOAD FILE LOGIC
             n = str(request.data["file_count"])
-            if n > "0":
+            if n >= "0":
+                print(n)
                 for i in range(0, int(n)):
                     file = "file{}".format(i + 1)
                     data = {
-                        "id": uuid.uuid4(),
-                        "ticket_ref_id": _ticket_ref_id,
+                        "ticket_ref_id": obj.id,
                         "user_file": request.data[file],
                         "filename": request.data[file],
                     }
                     queryset = TicketFileUploadSerializer(data=data)
                     if queryset.is_valid():
                         queryset.save()
-
             return Response(
                 {"mess": "Created Successfully", "status": status.HTTP_200_OK}
             )
         else:
-            print("Ticketserializers", Ticketserializers.errors)
-            return Response(
-                {"mess": "error", "status": 400, "error": Ticketserializers.errors}
-            )
+            print(Ticketserializers.errors)
+            return Response({"mess": "error", "status": "300"})
 
     except Exception as e:
         print("error", e)
@@ -685,6 +704,48 @@ def ticket_flow_user_for_infra(req, type):
     return emp
 
 
-# ticket_flow_user_for_infra("req1", "user")
-
 ticket_wf_status = {0: "INPROGRESS", 1: "APPROVED", 2: "REJECTED", 3: "CLOSED"}
+
+
+def ticket_components_view_access(woosee, request):
+    components = {
+        "assign_ticket_comp": False,
+        "status_close": False,
+        "upload_documents": False,
+        "approval_status": False,
+        "submit_btn": False,
+        "comments_box": False,
+        "severity_component": False,
+    }
+
+    components["assign_ticket_comp"] = (
+        True if str(ticket_flow_user_for_systems("it_head")) == str(woosee) else False
+    )
+    components["submit_btn"] = (
+        True if str(request["requester_emp_no"]) != str(woosee) else False
+    )
+    components["approval_status"] = (
+        True if str(request["requester_emp_no"]) != str(woosee) else False
+    )
+    components["comments_box"] = (
+        True if str(request["requester_emp_no"]) != str(woosee) else False
+    )
+    components["upload_documents"] = (
+        True
+        if str(
+            ticket_flow_user_for_systems("ticket_admin_system")
+            or ticket_flow_user_for_infra("req1", "ticket_admin_infra")
+        )
+        == str(woosee)
+        else False
+    )
+    components["severity_component"] = (
+        True
+        if str(
+            ticket_flow_user_for_systems("ticket_admin_system")
+            or ticket_flow_user_for_infra("req1", "ticket_admin_infra")
+        )
+        == str(woosee)
+        else False
+    )
+    return components

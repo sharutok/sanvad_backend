@@ -11,6 +11,16 @@ from django.db import connection
 import json
 import redis
 import bcrypt
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
+import os
+import random
+import string
+import PIL.Image as Image
+import io
+import base64
 
 
 # GET ALL DATA.
@@ -26,6 +36,7 @@ def all_data(request):
             | Q(last_name__icontains=search_query)
             | Q(department__icontains=search_query)
             | Q(last_name__icontains=search_query)
+            | Q(plant_name__icontains=search_query)
             | Q(emp_no__icontains=search_query)
         )
         .order_by("-updated_at")
@@ -47,20 +58,23 @@ def data_by_id(request, id):
             )
 
         case "PUT":
-            obj = UserManagement.objects.get(pk=id)
-            serializers = userManagementSerializer(obj, data=request.data)
-            if serializers.is_valid():
-                print(request.data)
-                serializers.save()
+            try:
+                obj = UserManagement.objects.get(pk=id)
+                serializers = userManagementSerializer(obj, data=request.data)
+                if serializers.is_valid():
+                    serializers.save()
+                else:
+                    print(serializers.errors)
                 return Response(
                     {"data": serializers.data, "status_code": status.HTTP_200_OK}
                 )
-            return Response(
-                {
-                    "error": serializers.errors,
-                    "status_code": status.HTTP_400_BAD_REQUEST,
-                }
-            )
+            except Exception as e:
+                return Response(
+                    {
+                        "error": serializers.errors,
+                        "status_code": status.HTTP_400_BAD_REQUEST,
+                    }
+                )
         case "DELETE":
             obj = UserManagement.objects.get(pk=id)
             obj.delete()
@@ -73,6 +87,9 @@ def data_by_id(request, id):
 @api_view(["POST"])
 def create(request):
     serializers = userManagementSerializer(data=request.data)
+    unsalted_password = str(serializers.data["password"]).encode("utf-8")
+    salted_password = bcrypt.hashpw(unsalted_password, bcrypt.gensalt(rounds=10))
+    serializers.data["password"] = salted_password
     if serializers.is_valid():
         serializers.save()
         return Response({"mess": "Created", "status": 200})
@@ -97,7 +114,6 @@ def login_verify_user(request):
                     "utf-8"
                 )
                 provided_password = password.encode("utf-8")
-
                 if bcrypt.checkpw(provided_password, hashed_password_from_database):
                     return Response(
                         {
@@ -109,9 +125,9 @@ def login_verify_user(request):
                         },
                     )
                 else:
-                    return Response({"status": HTTP_400_BAD_REQUEST})
+                    return Response({"status": status.HTTP_400_BAD_REQUEST})
             else:
-                return Response({"status": HTTP_400_BAD_REQUEST})
+                return Response({"status": status.HTTP_400_BAD_REQUEST})
     except Exception as e:
         print(e, "error")
         return Response({"status": status.HTTP_404_NOT_FOUND})
@@ -125,6 +141,107 @@ def birthday_list(request):
     except e:
         print("error", e)
         return Response({"error": e})
+
+
+@api_view(["POST"])
+def reset_password(request):
+    try:
+        if request.data["user_email"] and request.data["emp_no"]:
+            user_email = request.data["user_email"]
+            emp_no = request.data["emp_no"]
+            collection = hash_password()
+            password = collection[1]
+            actual_password = collection[0]
+            obj = UserManagement.objects.get(emp_no=emp_no)
+            serializers = userManagementSerializer(
+                obj, data={"password": password.decode("utf-8")}
+            )
+            if serializers.is_valid():
+                serializers.save()
+
+            load_dotenv()
+            smtp_server = os.getenv("SMTP_SERVER")
+            smtp_port = os.getenv("SMTP_PORT")
+            smtp_username = os.getenv("SMTP_USERNAME")
+            smtp_password = os.getenv("SMTP_PASSWORD")
+            sender_email = os.getenv("SENDER_EMAIL")
+            receiver_email = user_email
+            subject = "Sanvad Password Reset"
+
+            html_message = """
+                        <!DOCTYPE html>
+                            <html lang="en">
+                            <head>
+                                <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro' rel='stylesheet' type='text/css'>
+                                <meta charset="UTF-8">
+                                <meta http-equiv="X-UA-Compatible" content="IE=edge">
+                                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            </head>
+                            <body style="padding: 1rem;font-family: 'Source Sans Pro', sans-serif;">
+                                <span >Hi <span > {} !</span>,</span>
+                                <div style="margin-top: 1rem; display: grid; grid-template-columns: auto;gap: 5px; ">
+                                    <span>Your Password for Sanvad Application has been reset successfully.</span>
+                                    <p>Password : <strong> {} </strong></p>
+                                        <p>Use the link below to Log in.</p>
+                                        <p>
+                                            <a href="www.google.com">Sanvad</a>
+                                        </p>
+                                    </div>
+                                    <br />
+                                    <p>Thanks & Regards.. </p>
+                                    <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/Ador_Welding_logo.png" alt="Ador Logo" width="100"
+                                    height="50">
+                                    <br />
+                                    <br />
+                                    <h4 style="font-weight: bolder;align-items: center;font-style: italic;"> -: This is a system-generated :- </h4>
+                            </body>
+                            </html>
+            """.format(
+                obj, actual_password
+            )
+            # Create the email message
+            msg = MIMEMultipart()
+            msg["From"] = sender_email
+            msg["To"] = receiver_email
+            msg["Subject"] = subject
+            msg.attach(
+                MIMEText(
+                    html_message,
+                    "html",
+                )
+            )
+            # Establish a connection to the SMTP server
+
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.login(smtp_username, smtp_password)
+            server.sendmail(sender_email, receiver_email, msg.as_string())
+            print("Email sent successfully.")
+            server.quit()
+            return Response({"status_code": status.HTTP_200_OK})
+    except Exception as e:
+        print(e)
+        return Response({"status_code": status.HTTP_400_BAD_REQUEST})
+
+
+def random_password():
+    special_characters = ["!", "@", "#", "$", "%"]
+    lowercase_letters = list(string.ascii_lowercase)
+
+    v1 = random.choice(special_characters)
+    v2 = random.choice(lowercase_letters)
+    v3 = random.choice(lowercase_letters)
+    v4 = random.choice(lowercase_letters)
+    v5 = random.choice(special_characters)
+
+    return v1 + v2 + v3 + v4 + v5
+
+
+def hash_password():
+    ran = random_password()
+    unsalted_password = str(ran).encode("utf-8")
+    salted_password = bcrypt.hashpw(unsalted_password, bcrypt.gensalt(rounds=10))
+    print(ran, unsalted_password, salted_password)
+    return [ran, salted_password]
 
 
 # DYNAMIC VALUES- user_permission

@@ -17,6 +17,7 @@ from rest_framework.pagination import PageNumberPagination
 def all_data(request):
     paginator = PageNumberPagination()
     search_query = request.GET["search"]
+    woosee = request.GET["woosee"]
     todays_date = request.GET["date"]
     todays_date = (
         ""
@@ -34,10 +35,12 @@ def all_data(request):
                     where
                     1=1 and
                     	cb.conf_by = um.emp_no and
+                        cb.delete_flag = false and
+                        cb.conf_by like '%{}%' and 
                     	 (conf_room LIKE '%{}%'
                         OR conf_by LIKE '%{}%'
                         OR meeting_about LIKE '%{}%') AND conf_end_date::text LIKE '%{}%';""".format(
-        search_query, search_query, search_query, todays_date
+        woosee, search_query, search_query, search_query, todays_date
     )
     with connection.cursor() as cursor:
         cursor.execute(raw_sql_query)
@@ -61,20 +64,34 @@ def data_by_id(request, id):
                 {"data": serializers.data, "status_code": status.HTTP_200_OK}
             )
         case "DELETE":
-            obj = ConferenceBooking.objects.get(pk=id)
-            request.data["delete_flag"] = "Y"
-            serializers = ConferenceBookingSerializer(obj, data=request.data)
-            if serializers.is_valid():
-                serializers.save()
+            try:
+                ConferenceBooking.objects.filter(id=id).update(delete_flag=True)
                 return Response(
-                    {"data": serializers.data, "status_code": status.HTTP_200_OK}
+                    {
+                        "status_code": status.HTTP_200_OK,
+                    }
                 )
-            return Response(
-                {
-                    "error": serializers.errors,
-                    "status_code": status.HTTP_400_BAD_REQUEST,
-                }
-            )
+            except Exception as e:
+                return Response(
+                    {
+                        "status_code": status.HTTP_400_BAD_REQUEST,
+                    }
+                )
+
+            # obj = ConferenceBooking.objects.get(pk=id)
+            # request.data["delete_flag"] = "Y"
+            # serializers = ConferenceBookingSerializer(obj, data=request.data)
+            # if serializers.is_valid():
+            #     serializers.save()
+            #     return Response(
+            #         {"data": serializers.data, "status_code": status.HTTP_200_OK}
+            #     )
+            # return Response(
+            #     {
+            #         "error": serializers.errors,
+            #         "status_code": status.HTTP_400_BAD_REQUEST,
+            #     }
+            # )
 
 
 # CREATE

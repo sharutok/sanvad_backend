@@ -1,5 +1,7 @@
+from django.db import connection
 from django.shortcuts import render
 import pandas
+from rest_framework import status
 import json
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -10,6 +12,14 @@ import redis
 from django.http import FileResponse
 from django.conf import settings
 import os
+from django.db.models import F
+
+
+from sanvad_app.models import UserManagement
+from ticket_app.models import TicketSystemModel
+from conference_app.models import ConferenceBooking
+from visitors_app.models import VisitorsManagement
+from capex_app.models import Capex, Capex1
 
 # Create your views here.
 
@@ -17,34 +27,128 @@ import os
 @api_view(["POST"])
 def download_excel(request):
     try:
-        data = request.data
-        out_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../media/export/"
-        )
-        pandas.read_json(json.dumps(request.data)).head(100).to_excel(
-            out_path + "output.xlsx"
-        )
-
-        try:
-            # Open the file for reading as binary data
-            with open(os.path.join(out_path, "output.xlsx"), "rb") as file:
-                # Determine the file's MIME type based on the file extension
-                content_type, encoding = mimetypes.guess_type("output.xlsx")
-                if content_type is None:
-                    content_type = "application/octet-stream"
-
-                # Create an HttpResponse with the file as its content
-                response = HttpResponse(FileWrapper(file), content_type=content_type)
-
-                # Set the Content-Disposition header to trigger the download
-                response["Content-Disposition"] = 'attachment; filename="output.xlsx"'
-
-                return response
-        except FileNotFoundError:
-            return HttpResponse("File not found", status=404)
+        data_module = request.data["data_module"]
+        data = ""
+        match data_module:
+            case "user_manage":
+                data = (
+                    UserManagement.objects.filter(user_status=True)
+                    .order_by("-updated_at")
+                    .annotate(
+                        EMP_NO=F("emp_no"),
+                        FIRST_NAME=F("first_name"),
+                        LAST_NAME=F("last_name"),
+                        DEPARTMENT=F("department"),
+                        PLANT_NAME=F("plant_name"),
+                        ORGANIZATION=F("organization"),
+                        USER_STATUS=F("user_status"),
+                        START_DATE=F("start_date"),
+                    )
+                    .values(
+                        "EMP_NO",
+                        "FIRST_NAME",
+                        "LAST_NAME",
+                        "DEPARTMENT",
+                        "PLANT_NAME",
+                        "ORGANIZATION",
+                        "USER_STATUS",
+                        "START_DATE",
+                    )[:100]
+                )
+            case "ticket":
+                data = (
+                    TicketSystemModel.objects.filter(delete_flag=False)
+                    .order_by("-updated_at")
+                    .annotate(
+                        TICKET_NO=F("ticket_no"),
+                        TKT_TITLE=F("tkt_title"),
+                        TKT_TYPE=F("tkt_type"),
+                        REQ_TYPE=F("req_type"),
+                        REQUESTER_EMP_NO=F("requester_emp_no"),
+                        SEVERITY=F("severity"),
+                        CREATED_AT=F("created_at"),
+                        TKT_STATUS=F("tkt_status"),
+                        TKT_CURRENT_AT=F("tkt_current_at"),
+                    )
+                    .values(
+                        "TICKET_NO",
+                        "TKT_TITLE",
+                        "TKT_TYPE",
+                        "REQ_TYPE",
+                        "REQUESTER_EMP_NO",
+                        "SEVERITY",
+                        "CREATED_AT",
+                        "TKT_STATUS",
+                        "TKT_CURRENT_AT",
+                    )[:100]
+                )
+            case "conference":
+                raw_sql = """
+                select
+                    	cb.meeting_about  "Meeting title",
+                    	cb.conf_start_date "Meeting Date",
+                    	cb.conf_start_time "Start Time",
+                    	cb.conf_end_time  "End Time",
+                    	cb.conf_room "Conference",
+	                    concat (um.first_name,' ' ,um.last_name) "Booked By" ,
+	                    um.department "Department"
+                    from
+                    	conference_booking cb,user_management um
+                    where
+                    1=1 and
+                    	cb.conf_by = um.emp_no and
+                    cb.delete_flag = false order by cb.created_at desc limit 100;
+                """
+                data = select_sql(raw_sql)
+            case "visitor":
+                raw_sql = """
+                    select
+                    	reason_for_visit "Visitor's Reason For Vist",
+                    	concat(um.first_name,
+                    	' ',
+                    	um.last_name) "Raised By",
+                    	um.department "Department" ,
+                    	to_char(vm.start_date_time ::timestamp ,
+                    	'DD-MM-YYYY hh:mi AM') "Start Date-time" ,
+                    	to_char(vm.end_date_time ::timestamp ,
+                    	'DD-MM-YYYY hh:mi AM') "End Date-Time",
+                    	jsonb_array_length(visitors) "Visitor Count"
+                    from
+                    	visitors_management vm
+                    left join user_management um on
+                    	vm.raised_by = um.emp_no where vm.delete_flag  = false order by vm.updated_at desc limit 100;
+                """
+                data = select_sql(raw_sql)
+            case "capex":
+                raw_sql = """ 
+                    select
+	                        cem.budget_no "Budget No",
+                        	cem.line_no "Line No",
+                        	cem.purpose_code "Purpose code",
+                        	cdm.requisition_date "Requisition Date",
+                        	cdm.payback_period "Payback Period",
+                        	cdm.return_on_investment "Return On Investment",
+                        	cdm.budget_type "Budget Type",
+                        	concat(um.first_name,
+                        	' ',
+                        	um.last_name) "Current At",
+                        	cdm.capex_status "Capex Status"
+                        from
+                        	capex_data_master cdm
+                        left join user_management um on
+                        	cdm.capex_current_at = um.emp_no
+                        left join capex_excel_master cem on
+                        	cem.id = cdm.budget_id
+                        where
+                        	cdm.delete_flag = false
+                        order by
+                        	cdm.updated_at desc
+                        limit 100;"""
+                data = select_sql(raw_sql)
+        return Response({"status_code": status.HTTP_200_OK, "data": data})
     except Exception as e:
-        return Response({"mess": "ok", "error": e})
         print(e)
+        return Response({"status_code": status.HTTP_400_BAD_REQUEST})
 
 
 @api_view(["GET"])
@@ -69,3 +173,13 @@ def serve_files(request):
         # Handle the case where the file does not exist
         print("File not found")
         return HttpResponse("File not found", status=404)
+
+
+def select_sql(raw_sql_query):
+    with connection.cursor() as cursor:
+        cursor.execute(raw_sql_query)
+        results = cursor.fetchall()
+        rows = [
+            dict(zip([col[0] for col in cursor.description], row)) for row in results
+        ]
+    return rows

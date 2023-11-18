@@ -6,6 +6,7 @@ from capex_app.views import (
     get_by_budget_id,
     create_new_capex,
     get_all_capex_data,
+    update_capex,
 )
 
 urlpatterns = [
@@ -15,4 +16,5 @@ urlpatterns = [
     path("data-budget/<uuid:id>/", get_by_budget_id, name="get-by-budget-id"),
     path("data-capex/<uuid:id>/", get_by_capex_id, name="get-by-capex-id"),
     path("create/", create_new_capex, name="create"),
+    path("update/only/", update_capex, name="update-capex"),
 ]

@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "ticket_app",
     "utils_app",
     "workflow_app",
+    "policies_app",
 ]
 
 MIDDLEWARE = [

@@ -11,6 +11,15 @@ class TicketSytemSerializer(serializers.ModelSerializer):
 
 
 class TicketFileUploadSerializer(serializers.ModelSerializer):
+    mod_file_path = serializers.SerializerMethodField()
+    mod_file_name = serializers.SerializerMethodField()
+
     class Meta:
         model = TicketFileUploadModel
         fields = "__all__"
+
+    def get_mod_file_path(self, object):
+        return str("http://localhost:8000/media/" + str(object.user_file))
+
+    def get_mod_file_name(self, object):
+        return str(object.user_file).split("/")[-1]
