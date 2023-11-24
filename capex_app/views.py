@@ -62,9 +62,9 @@ def read_data_excel(request):
                     "remarks": row["REMARKS"],
                 }
             )
-        if serializers.is_valid():
-            print("data saved")
-            serializers.save()
+            if serializers.is_valid():
+                serializers.save()
+            print(serializers.errors)
         return Response({"mess": "Created", "status": 200})
 
     except Exception as e:
@@ -81,12 +81,8 @@ def get_all_budget_data(request):
     user_info = UserManagement.objects.get(emp_no=woosee)
     user_info = userManagementSerializer(user_info)
 
-    print(woosee, get_capex_admin())
-
     plant_name = "" if woosee in get_capex_admin() else user_info.data["plant_name"]
     department = "" if woosee in get_capex_admin() else user_info.data["department"]
-
-    print(plant_name, department, "ppp")
 
     raw_sql_query = """
                             select

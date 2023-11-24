@@ -77,7 +77,7 @@ def data_by_id(request, id):
                             ;""".format(
                 id
             )
-            view_access = visitor_components_view_access(woosee)
+            view_access = visitor_components_view_access(woosee, id)
             with connection.cursor() as cursor:
                 cursor.execute(raw_sql_query)
                 results = cursor.fetchall()
@@ -122,7 +122,6 @@ def data_by_id(request, id):
             except Exception as e:
                 return Response(
                     {
-                        "error": serializers.errors,
                         "status_code": status.HTTP_400_BAD_REQUEST,
                     }
                 )
@@ -177,10 +176,85 @@ def get_image(request):
         )
 
 
-def visitor_components_view_access(woosee):
-    components = {"print_component": False, "camera_component": False}
+@api_view(["PUT"])
+def punch(request):
+    try:
+        id = request.GET["id"]
+        print(request.data)
+        dataObj = {}
+        for data in request.data:
+            if request.data[data]:
+                dataObj[data] = request.data[data]
+
+        obj = VisitorsManagement.objects.get(pk=id)
+        serializers = VisitorsManagementSerializer(obj, data=dataObj)
+        if serializers.is_valid():
+            serializers.save()
+        return Response(
+            {
+                "status_code": status.HTTP_200_OK,
+            }
+        )
+    except Exception as e:
+        print(e)
+        return Response(
+            {
+                "status_code": status.HTTP_400_BAD_REQUEST,
+            }
+        )
+
+
+def visitor_components_view_access(woosee, id):
+    queryset = VisitorsManagement.objects.get(pk=id)
+    serializers = VisitorsManagementSerializer(queryset)
+
+    components = {
+        "print_component": False,
+        "camera_component": False,
+        "update_btn": False,
+        "punch_in": False,
+        "punch_out": False,
+    }
     components["print_component"] = True if woosee in security_det() else False
+    components["update_btn"] = True if woosee in security_det() else False
     components["camera_component"] = True if woosee in security_det() else False
+
+    print(
+        serializers.data["punch_in_date_time"], serializers.data["punch_out_date_time"]
+    )
+
+    def punch():
+        if not serializers.data["punch_in_date_time"]:
+            return [True, False]
+
+        if serializers.data["punch_in_date_time"]:
+            if (
+                serializers.data["punch_in_date_time"]
+                and serializers.data["punch_out_date_time"]
+            ):
+                return [False, False]
+            return [False, True]
+
+        # if (
+        #     serializers.data["punch_in_date_time"]
+        #     and serializers.data["punch_out_date_time"]
+        # ):
+        #     if (
+        #         serializers.data["punch_in_date_time"]
+        #         or serializers.data["punch_out_date_time"]
+        #     ):
+        #         if serializers.data["punch_in_date_time"]:
+        #             return [True, False]
+        #         if serializers.data["punch_out_date_time"]:
+        #             return [False, True]
+        #     return [False, False]
+        # else:
+        #     return [True, True]
+
+    val = punch()
+    print(val)
+    components["punch_in"] = val[0]
+    components["punch_out"] = val[1]
 
     return components
 

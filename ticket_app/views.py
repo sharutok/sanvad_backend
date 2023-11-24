@@ -41,10 +41,10 @@ def all_data(request):
     raw_sql_query = """
         select
         ts.*,
-        concat(substring(um.first_name,1,1),
-        substring( um.last_name,1,1)) tkt_current_at,
+        concat(um.first_name, ' ',
+        um.last_name) tkt_current_at,
         concat(um2.first_name,' ',
-        um2.last_name) requester_emp_no,
+        um2.last_name) requester_emp_name,
         to_char(ts.created_at::timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD-MM-YYYY hh:mi AM') created_at
         from
         	tkt_system ts

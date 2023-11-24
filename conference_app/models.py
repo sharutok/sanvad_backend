@@ -12,6 +12,7 @@ class ConferenceBooking(models.Model):
     conf_start_date = models.DateField(null=True)
     conf_start_time = models.TimeField(null=True)
     conf_end_date = models.DateField(null=True)
+    disp_conf_end_date = models.DateField(null=True)
     conf_end_time = models.TimeField(null=True)
     conf_room = models.CharField(max_length=50, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -13,8 +13,10 @@ from django.http import FileResponse
 from django.conf import settings
 import os
 from django.db.models import F
+import datetime
+from utils_app.serializers import AnnounsmentSerializer
 
-
+from utils_app.models import Announsment
 from sanvad_app.models import UserManagement
 from ticket_app.models import TicketSystemModel
 from conference_app.models import ConferenceBooking
@@ -183,3 +185,58 @@ def select_sql(raw_sql_query):
             dict(zip([col[0] for col in cursor.description], row)) for row in results
         ]
     return rows
+
+
+@api_view(["POST", "GET", "DELETE"])
+def announcement(request):
+    match request.method:
+        case "POST":
+            try:
+                serializers = AnnounsmentSerializer(data=request.data)
+                if serializers.is_valid():
+                    serializers.save()
+                return Response({"status": status.HTTP_200_OK})
+            except:
+                return Response(
+                    {
+                        "status": status.HTTP_400_BAD_REQUEST,
+                    }
+                )
+        case "GET":
+            try:
+                current_date = datetime.datetime.now().strftime("%d-%m-%Y")
+                print(current_date)
+                raw_sql_query = """
+                                    select * from (SELECT *,
+                                    to_date(to_char(created_at + interval '7' day, 'DD-MM-YYYY'), 'DD-MM-YYYY') as expiry_date
+                                    FROM announsments) tbl where to_date('{}', 'DD-MM-YYYY') <= tbl.expiry_date ;
+                """.format(
+                    current_date
+                )
+                with connection.cursor() as cursor:
+                    cursor.execute(raw_sql_query)
+                    results = cursor.fetchall()
+                    rows = [
+                        dict(zip([col[0] for col in cursor.description], row))
+                        for row in results
+                    ]
+                return Response({"status": status.HTTP_200_OK, "data": rows})
+            except Exception as e:
+                print(e)
+                return Response(
+                    {
+                        "status": status.HTTP_400_BAD_REQUEST,
+                    }
+                )
+        case "DELETE":
+            try:
+                serializers = AnnounsmentSerializer(data=request.data)
+                if serializers.is_valid():
+                    serializers.save()
+                return Response({"status": status.HTTP_200_OK})
+            except:
+                return Response(
+                    {
+                        "status": status.HTTP_400_BAD_REQUEST,
+                    }
+                )

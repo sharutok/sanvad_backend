@@ -25,6 +25,9 @@ class VisitorsManagement(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     delete_flag = models.BooleanField(default=False)
     visitors = JSONField(default=list, null=True, blank=True)
+    punch_in_date_time = models.DateTimeField(null=True)
+    punch_out_date_time = models.DateTimeField(null=True)
+    visitor_status = models.IntegerField(null=True, default=0)
 
     def __str__(self):
         return self.id

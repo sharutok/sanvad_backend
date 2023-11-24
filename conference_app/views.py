@@ -35,12 +35,11 @@ def all_data(request):
                     where
                     1=1 and
                     	cb.conf_by = um.emp_no and
-                        cb.delete_flag = false and
-                        cb.conf_by like '%{}%' and 
+                        cb.delete_flag = false and                
                     	 (conf_room LIKE '%{}%'
                         OR conf_by LIKE '%{}%'
-                        OR meeting_about LIKE '%{}%') AND conf_end_date::text LIKE '%{}%';""".format(
-        woosee, search_query, search_query, search_query, todays_date
+                        OR meeting_about LIKE '%{}%') AND conf_end_date::text LIKE '%{}%' order by cb.created_at desc ;""".format(
+        search_query, search_query, search_query, todays_date
     )
     with connection.cursor() as cursor:
         cursor.execute(raw_sql_query)
@@ -118,11 +117,15 @@ def create(request):
             "conf_end_date": end_date_component,
             "conf_end_time": end_time_component,
             "conf_room": request.data["conf_room"],
+            "disp_conf_end_date": "",
         }
 
         date1 = datetime.strptime(str(data["conf_end_date"]), "%Y-%m-%d")
         date2 = datetime.strptime(str(data["conf_start_date"]), "%Y-%m-%d")
 
+        data["disp_conf_end_date"] = datetime.strptime(
+            str(data["conf_end_date"]), "%Y-%m-%d"
+        ).date()
         # Calculate the difference between the two dates
         delta = date1 - date2
 
@@ -137,6 +140,7 @@ def create(request):
         for date in end_dates:
             data["conf_end_date"] = datetime.strptime(date, "%Y-%m-%d").date()
             serializers = ConferenceBookingSerializer(data=data)
+            print(data)
             if serializers.is_valid():
                 serializers.save()
 
