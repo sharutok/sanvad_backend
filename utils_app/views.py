@@ -22,6 +22,7 @@ from ticket_app.models import TicketSystemModel
 from conference_app.models import ConferenceBooking
 from visitors_app.models import VisitorsManagement
 from capex_app.models import Capex, Capex1
+from sanvad_app.models import EmployeeMappings
 
 # Create your views here.
 
@@ -240,3 +241,41 @@ def announcement(request):
                         "status": status.HTTP_400_BAD_REQUEST,
                     }
                 )
+
+
+@api_view(["GET"])
+def serve_images(request):
+    try:
+        image_file = "http://localhost:8000/{}.png".format(request.data["image_name"])
+        return Response({"status": status.HTTP_200_OK, "data": image_file})
+
+    except Exception as e:
+        print(e)
+        return Response(
+            {
+                "status": status.HTTP_400_BAD_REQUEST,
+            }
+        )
+
+
+@api_view(["GET"])
+def plant_department_values(request):
+    plant = "select * from "
+    department = (
+        "select distinct department  from employee_mappings em order by department asc;"
+    )
+    plant_name = (
+        "select distinct plant_name  from employee_mappings em order by plant_name asc;"
+    )
+
+    _department_data = []
+    department_data = select_sql(department)
+    for x in department_data:
+        _department_data.append(x["department"])
+
+    _plant_name_data = []
+    plant_name_data = select_sql(plant_name)
+    for x in plant_name_data:
+        _plant_name_data.append(x["plant_name"])
+
+    return Response({"plant_data": _plant_name_data, "department": _department_data})
