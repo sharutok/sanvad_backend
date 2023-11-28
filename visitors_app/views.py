@@ -216,12 +216,15 @@ def visitor_components_view_access(woosee, id):
         "punch_out": False,
     }
     components["print_component"] = True if woosee in security_det() else False
-    components["update_btn"] = False if woosee in security_det() else True
     components["camera_component"] = True if woosee in security_det() else False
 
-    print(
-        serializers.data["punch_in_date_time"], serializers.data["punch_out_date_time"]
-    )
+    def update_btn():
+        if str(serializers.data["visitor_status"]) == str(0):
+            return True
+        else:
+            return False
+
+    components["update_btn"] = update_btn()
 
     def punch():
         if not serializers.data["punch_in_date_time"]:
@@ -235,24 +238,7 @@ def visitor_components_view_access(woosee, id):
                 return [False, False]
             return [False, True]
 
-        # if (
-        #     serializers.data["punch_in_date_time"]
-        #     and serializers.data["punch_out_date_time"]
-        # ):
-        #     if (
-        #         serializers.data["punch_in_date_time"]
-        #         or serializers.data["punch_out_date_time"]
-        #     ):
-        #         if serializers.data["punch_in_date_time"]:
-        #             return [True, False]
-        #         if serializers.data["punch_out_date_time"]:
-        #             return [False, True]
-        #     return [False, False]
-        # else:
-        #     return [True, True]
-
     val = punch()
-    print(val)
     components["punch_in"] = val[0]
     components["punch_out"] = val[1]
 
