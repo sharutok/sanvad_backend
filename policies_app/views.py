@@ -34,6 +34,7 @@ def get_all_data(request):
 @api_view(["POST"])
 def create_policy(request):
     try:
+        print(request.data)
         serializers = UploadPolicySerializer(data=request.data)
         if serializers.is_valid():
             serializers.save()

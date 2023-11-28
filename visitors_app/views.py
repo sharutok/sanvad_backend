@@ -216,7 +216,7 @@ def visitor_components_view_access(woosee, id):
         "punch_out": False,
     }
     components["print_component"] = True if woosee in security_det() else False
-    components["update_btn"] = True if woosee in security_det() else False
+    components["update_btn"] = False if woosee in security_det() else True
     components["camera_component"] = True if woosee in security_det() else False
 
     print(

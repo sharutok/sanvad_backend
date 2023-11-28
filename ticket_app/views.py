@@ -721,9 +721,18 @@ def ticket_components_view_access(woosee, request):
     components["assign_ticket_comp"] = (
         True if str(ticket_flow_user_for_systems("it_head")) == str(woosee) else False
     )
-    components["submit_btn"] = (
-        True if str(request["requester_emp_no"]) != str(woosee) else False
-    )
+
+    def submit_btn():
+        if str(request["requester_emp_no"]) != str(woosee):
+            if request["tkt_current_at"] != str(woosee):
+                return False
+                return True
+            return True
+        else:
+            return False
+
+    components["submit_btn"] = submit_btn()
+
     components["approval_status"] = (
         True if str(request["requester_emp_no"]) != str(woosee) else False
     )

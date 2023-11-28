@@ -145,8 +145,8 @@ def create(request):
                 serializers.save()
 
         return Response({"mess": "Created", "status": 200})
-    except e as Exception:
-        return Response({"mess": "Not", "status": 400, "err": serializers.errors})
+    except Exception as e:
+        return Response({"mess": "Not", "status": 400, "err": e})
 
 
 # GET BY CONF ROOM & DATE
