@@ -105,8 +105,9 @@ def login_verify_user(request):
 
         if email:
             queryset_email = UserManagement.objects.filter(email_id=email)
-
-            if queryset_email.exists():
+            obj = UserManagement.objects.get(email_id=email)
+            serializers = userManagementSerializer(obj)
+            if queryset_email.exists() and (serializers.data["user_status"] == True):
                 queryset_email = UserManagement.objects.get(email_id=email)
                 serializers = userManagementSerializer(queryset_email)
 
@@ -166,7 +167,7 @@ def reset_password(request):
             smtp_password = os.getenv("SMTP_PASSWORD")
             sender_email = os.getenv("SENDER_EMAIL")
             receiver_email = user_email
-            subject = "Sanvad Password Reset"
+            subject = "ADOR HUB Password Reset"
 
             html_message = """
                         <!DOCTYPE html>
@@ -180,11 +181,11 @@ def reset_password(request):
                             <body style="padding: 1rem;font-family: 'Source Sans Pro', sans-serif;">
                                 <span >Hi <span > {} !</span>,</span>
                                 <div style="margin-top: 1rem; display: grid; grid-template-columns: auto;gap: 5px; ">
-                                    <span>Your Password for Sanvad Application has been reset successfully.</span>
+                                    <span>Your Password for ADOR HUB Application has been reset successfully.</span>
                                     <p>Password : <strong> {} </strong></p>
                                         <p>Use the link below to Log in.</p>
                                         <p>
-                                            <a href="www.google.com">Sanvad</a>
+                                            <a href="www.google.com">ADOR HUB</a>
                                         </p>
                                     </div>
                                     <br />

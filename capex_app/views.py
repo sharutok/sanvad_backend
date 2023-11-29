@@ -31,6 +31,8 @@ def read_data_excel(request):
         if serializers.is_valid():
             print("file saved")
             obj = serializers.save()
+        else:
+            print(serializers.errors)
 
         current_directory = os.path.dirname(os.path.abspath(__file__))
         excel_file_path = os.path.join(
@@ -138,6 +140,7 @@ def get_all_capex_data(request):
                         	cdm.budget_type,
                         	cdm.budget_id ,
                         	cdm.id capex_id,
+                            to_char(cdm.created_at::timestamp, 'DD-MM-YYYY') created_at,
                             concat(um.first_name,' ',um.last_name) capex_current_at,
                             concat(um1.first_name,' ',um1.last_name) capex_raised_by,
                             cdm.capex_status
@@ -417,7 +420,6 @@ def create_new_capex(request):
         d1 = execute_sql(user_flow_for_plant.format(raised_by_emp))[0]["index_1"]
         d2 = execute_sql(user_flow_for_corporate.format(raised_by_emp))[0]["index_1"]
         d = "for_plant" if d1 else "for_corporate"
-        print(d)
 
         request.data["capex_current_at"] = whose_ur_manager
         request.data["capex_status"] = capex_wf_status[0]
@@ -429,10 +431,11 @@ def create_new_capex(request):
             serializers.save()
             return Response({"mess": "created", "status": 200})
         else:
-            return Response({"error": serializers.errors, "status_code": 400})
+            print(serializers.errors)
+            return Response({"error": serializers.errors, "status": 400})
     except Exception as e:
         print(e)
-        return Response({"error": "e", "status_code": 400})
+        return Response({"error": "e", "status": 400})
 
 
 def execute_sql(sql):
