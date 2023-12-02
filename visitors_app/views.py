@@ -214,6 +214,7 @@ def visitor_components_view_access(woosee, id):
         "update_btn": False,
         "punch_in": False,
         "punch_out": False,
+        "delete_btn": False,
     }
     components["print_component"] = True if woosee in security_det() else False
     components["camera_component"] = True if woosee in security_det() else False
@@ -243,6 +244,23 @@ def visitor_components_view_access(woosee, id):
     components["punch_out"] = val[1]
 
     return components
+
+
+@api_view(["GET"])
+def visitor_list_component_view_access(request):
+    try:
+        components = {
+            "delete_btn": False,
+        }
+        woosee = request.GET["woosee"]
+        components["delete_btn"] = True if woosee in security_det() else False
+        return Response(components)
+    except Exception as e:
+        return Response(
+            {
+                "status_code": status.HTTP_400_BAD_REQUEST,
+            }
+        )
 
 
 def security_det():

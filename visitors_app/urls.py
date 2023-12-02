@@ -7,6 +7,7 @@ from visitors_app.views import (
     save_image,
     get_image,
     punch,
+    visitor_list_component_view_access,
 )
 
 urlpatterns = [
@@ -16,4 +17,9 @@ urlpatterns = [
     path("save/img/", save_image, name="save-image"),
     path("get/img/", get_image, name="get-image"),
     path("punch/", punch, name="punch"),
+    path(
+        "list/access/",
+        visitor_list_component_view_access,
+        name="visitor-list-component-view-access",
+    ),
 ]

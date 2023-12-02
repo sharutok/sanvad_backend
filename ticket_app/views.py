@@ -128,7 +128,7 @@ def data_by_id(request, id):
             )
         case "PUT":
             if request.data["tkt_status"] != ticket_wf_status[3]:
-                print(request.data["tkt_status"])
+                # print(request.data["tkt_status"])
                 try:
                     id_value = "{}".format(request.data["id"])
                     serializers = TicketSytemSerializer(
@@ -157,6 +157,59 @@ def data_by_id(request, id):
                     SET approval_flow = approval_flow || %s::jsonb
                     WHERE id = %s;
                     """
+
+                    def res_body_for_erp_tkt(user_status, nextflow):
+                        tkt_status = ""
+                        tkt_current_at = ""
+                        # APPROVED
+                        if user_status == "0":
+                            if len(serializers.data["approval_flow"]) == 3:
+                                tkt_status = ticket_wf_status[3]
+                                tkt_current_at = None
+                                obj_data["status"] = "2"
+                            else:
+                                tkt_status = ticket_wf_status[0]
+                                tkt_current_at = nextflow
+                        # REJECTED
+                        if user_status == "1":
+                            tkt_status = ticket_wf_status[2]
+                            tkt_current_at = None
+                        return [tkt_status, tkt_current_at]
+
+                    obj = TicketSystemModel.objects.get(id=request.data["id"])
+                    approver_emp = request.data["user_info"]
+
+                    def res_body_for_it_infra(user_status, nextflow):
+                        tkt_status = ""
+                        tkt_current_at = ""
+                        match request.data["req_type"]:
+                            case "ISSUES":
+                                # APPROVED
+                                if user_status == "0":
+                                    if len(serializers.data["approval_flow"]) == 0:
+                                        tkt_status = ticket_wf_status[0]
+                                        tkt_current_at = nextflow
+                                        # tkt_current_at = "C0072"
+                                    if len(serializers.data["approval_flow"]) == 1:
+                                        obj_data["status"] = "2"
+                                        tkt_status = ticket_wf_status[3]
+                                        tkt_current_at = None
+                                # REJECTED
+                                if user_status == "1":
+                                    tkt_status = ticket_wf_status[2]
+                                    tkt_current_at = None
+
+                        return [tkt_status, tkt_current_at]
+
+                    # get ticket data based on id
+
+                    def approval_flow_execute(obj_data):
+                        try:
+                            with connection.cursor() as cursor:
+                                cursor.execute(sql, [Json(obj_data), id_value])
+                        except Exception as e:
+                            print("approval_flow_execute", e)
+
                     # IF TICKET TYPE IS INFRA
                     match request.data["tkt_type"]:
                         case "IT INFRA":
@@ -164,159 +217,104 @@ def data_by_id(request, id):
                                 case "ISSUES":
                                     match len(serializers.data["approval_flow"]):
                                         # ticket is with admin infra
-                                        case 1:
-                                            approver_emp = request.data["user_info"]
-                                            user_info = user_details_from_emp_id(
-                                                approver_emp
+                                        case 0:
+                                            val = res_body_for_it_infra(
+                                                request.data["approver_status"],
+                                                redis_get_string(
+                                                    "it_infra_issues_technical"
+                                                ),
                                             )
-                                            obj = TicketSystemModel.objects.get(
-                                                id=request.data["id"]
-                                            )
-                                            assign_ticket_to_user = request.data[
-                                                "assign_ticket_to_user"
-                                            ]
-                                            assign_ticket_to_user_id = re.split(
-                                                "-", assign_ticket_to_user
-                                            )[0]
 
                                             serializers = TicketSytemSerializer(
                                                 obj,
                                                 data={
-                                                    "tkt_current_at": assign_ticket_to_user_id,
-                                                    "tkt_status": ticket_wf_status[0]
-                                                    if request.data["approver_status"]
-                                                    == "0"
-                                                    else ticket_wf_status[2],
+                                                    "tkt_status": val[0],
+                                                    "tkt_current_at": val[1],
                                                 },
                                             )
+                                            obj_data["next_approver"] = val[1]
 
                                             if serializers.is_valid():
                                                 serializers.save()
+                                            approval_flow_execute(obj_data)
 
-                                            obj_data[
-                                                "next_approver"
-                                            ] = assign_ticket_to_user_id
-
-                                            with connection.cursor() as cursor:
-                                                cursor.execute(
-                                                    sql, [Json(obj_data), id_value]
-                                                )
                                         # ticket is with technical user
-                                        case 2:
-                                            approver_emp = request.data["user_info"]
-                                            user_info = user_details_from_emp_id(
-                                                approver_emp
+                                        case 1:
+                                            val = res_body_for_it_infra(
+                                                request.data["approver_status"],
+                                                "",
                                             )
-                                            obj = TicketSystemModel.objects.get(
-                                                id=request.data["id"]
-                                            )
-                                            assign_ticket_to_user = request.data[
-                                                "assign_ticket_to_user"
-                                            ]
-                                            assign_ticket_to_user_id = re.split(
-                                                "-", assign_ticket_to_user
-                                            )[0]
-
                                             serializers = TicketSytemSerializer(
                                                 obj,
                                                 data={
-                                                    "tkt_current_at": None,
-                                                    "tkt_status": ticket_wf_status[3],
+                                                    "tkt_status": val[0],
+                                                    "tkt_current_at": val[1],
                                                 },
                                             )
+                                            obj_data["next_approver"] = val[1]
 
                                             if serializers.is_valid():
                                                 serializers.save()
-
-                                            obj_data["next_approver"] = None
-
-                                            with connection.cursor() as cursor:
-                                                cursor.execute(
-                                                    sql, [Json(obj_data), id_value]
-                                                )
+                                            approval_flow_execute(obj_data)
 
                                 case "DATACENTER / VPN ACCESS":
                                     match len(serializers.data["approval_flow"]):
                                         # ticket at manager
                                         case 0:
-                                            approver_emp = request.data["user_info"]
-                                            user_info = user_details_from_emp_id(
-                                                (json.loads(approver_emp))
+                                            # approver_emp = request.data["user_info"]
+                                            # obj = TicketSystemModel.objects.get(
+                                            #     id=request.data["id"]
+                                            # )
+                                            # user_info = user_details_from_emp_id(
+                                            #     (json.loads(approver_emp))
+                                            # )
+
+                                            val = res_body_for_erp_tkt(
+                                                request.data["approver_status"],
+                                                ticket_flow_user_for_infra(
+                                                    "req1", "ticket_admin_infra"
+                                                ),
                                             )
 
-                                            obj = TicketSystemModel.objects.get(
-                                                id=request.data["id"]
-                                            )
                                             serializers = TicketSytemSerializer(
                                                 obj,
                                                 data={
-                                                    "tkt_current_at": ticket_flow_user_for_infra(
-                                                        "req1", "ticket_admin_infra"
-                                                    ),
-                                                    "tkt_status": ticket_wf_status[0]
-                                                    if request.data["approver_status"]
-                                                    == "0"
-                                                    else ticket_wf_status[2],
+                                                    "tkt_status": val[0],
+                                                    "tkt_current_at": val[1],
                                                 },
                                             )
+                                            obj_data["next_approver"] = val[1]
+
                                             if serializers.is_valid():
                                                 serializers.save()
 
-                                            obj_data[
-                                                "next_approver"
-                                            ] = ticket_flow_user_for_systems(
-                                                "ticket_admin_system"
-                                            )
-                                            with connection.cursor() as cursor:
-                                                cursor.execute(
-                                                    sql, [Json(obj_data), id_value]
-                                                )
+                                            approval_flow_execute(obj_data)
 
                                         # ticket at ticket admin
                                         case 1:
-                                            approver_emp = request.data["user_info"]
-                                            user_info = user_details_from_emp_id(
-                                                (json.loads(approver_emp))
+                                            val = res_body_for_erp_tkt(
+                                                request.data["approver_status"],
+                                                ticket_flow_user_for_systems("it_head"),
                                             )
 
-                                            obj = TicketSystemModel.objects.get(
-                                                id=request.data["id"]
-                                            )
                                             serializers = TicketSytemSerializer(
                                                 obj,
                                                 data={
-                                                    "tkt_current_at": ticket_flow_user_for_systems(
-                                                        "it_head"
-                                                    ),
-                                                    "tkt_status": ticket_wf_status[0]
-                                                    if request.data["approver_status"]
-                                                    == "0"
-                                                    else ticket_wf_status[2],
+                                                    "tkt_status": val[0],
+                                                    "tkt_current_at": val[1],
                                                     "severity": request.data[
                                                         "severity"
                                                     ],
                                                 },
                                             )
+                                            obj_data["next_approver"] = val[1]
+
                                             if serializers.is_valid():
                                                 serializers.save()
-
-                                            obj_data[
-                                                "next_approver"
-                                            ] = ticket_flow_user_for_systems("it_head")
-                                            with connection.cursor() as cursor:
-                                                cursor.execute(
-                                                    sql, [Json(obj_data), id_value]
-                                                )
+                                            approval_flow_execute(obj_data)
 
                                         # ticket is at it head
                                         case 2:
-                                            approver_emp = request.data["user_info"]
-                                            user_info = user_details_from_emp_id(
-                                                approver_emp
-                                            )
-                                            obj = TicketSystemModel.objects.get(
-                                                id=request.data["id"]
-                                            )
                                             assign_ticket_to_user = request.data[
                                                 "assign_ticket_to_user"
                                             ]
@@ -324,120 +322,93 @@ def data_by_id(request, id):
                                                 "-", assign_ticket_to_user
                                             )[0]
 
+                                            val = res_body_for_erp_tkt(
+                                                request.data["approver_status"],
+                                                assign_ticket_to_user_id,
+                                            )
+                                            print(val)
+
                                             serializers = TicketSytemSerializer(
                                                 obj,
                                                 data={
-                                                    "tkt_current_at": assign_ticket_to_user_id,
-                                                    "tkt_status": ticket_wf_status[0]
-                                                    if request.data["approver_status"]
-                                                    == "0"
-                                                    else ticket_wf_status[2],
+                                                    "tkt_status": val[0],
+                                                    "tkt_current_at": val[1],
                                                 },
                                             )
+                                            obj_data["next_approver"] = val[1]
 
                                             if serializers.is_valid():
                                                 serializers.save()
-
-                                            obj_data[
-                                                "next_approver"
-                                            ] = assign_ticket_to_user_id
-
-                                            with connection.cursor() as cursor:
-                                                cursor.execute(
-                                                    sql, [Json(obj_data), id_value]
-                                                )
+                                            approval_flow_execute(obj_data)
 
                                             # ticket is with technical user
                                         case 3:
-                                            approver_emp = request.data["user_info"]
-                                            user_info = user_details_from_emp_id(
-                                                approver_emp
+                                            val = res_body_for_erp_tkt(
+                                                request.data["approver_status"],
+                                                "",
                                             )
-                                            obj = TicketSystemModel.objects.get(
-                                                id=request.data["id"]
-                                            )
-                                            assign_ticket_to_user = request.data[
-                                                "assign_ticket_to_user"
-                                            ]
-                                            assign_ticket_to_user_id = re.split(
-                                                "-", assign_ticket_to_user
-                                            )[0]
-
                                             serializers = TicketSytemSerializer(
                                                 obj,
                                                 data={
-                                                    "tkt_current_at": None,
-                                                    "tkt_status": ticket_wf_status[3],
+                                                    "tkt_status": val[0],
+                                                    "tkt_current_at": val[1],
                                                 },
                                             )
-
+                                            obj_data["next_approver"] = None
                                             if serializers.is_valid():
                                                 serializers.save()
-
-                                            obj_data["next_approver"] = None
-
-                                            with connection.cursor() as cursor:
-                                                cursor.execute(
-                                                    sql, [Json(obj_data), id_value]
-                                                )
+                                            approval_flow_execute(obj_data)
 
                         case _:
                             match len(serializers.data["approval_flow"]):
                                 # ticket at manager
                                 case 0:
-                                    approver_emp = request.data["user_info"]
                                     user_info = user_details_from_emp_id(
                                         (json.loads(approver_emp))
                                     )
 
-                                    obj = TicketSystemModel.objects.get(
-                                        id=request.data["id"]
+                                    val = res_body_for_erp_tkt(
+                                        request.data["approver_status"],
+                                        ticket_flow_user_for_systems(
+                                            "ticket_admin_system"
+                                        ),
                                     )
                                     serializers = TicketSytemSerializer(
                                         obj,
                                         data={
-                                            "tkt_current_at": ticket_flow_user_for_systems(
-                                                "ticket_admin_system"
-                                            ),
-                                            "tkt_status": ticket_wf_status[0]
-                                            if request.data["approver_status"] == "0"
-                                            else ticket_wf_status[2],
+                                            "tkt_status": val[0],
+                                            "tkt_current_at": val[1],
                                         },
                                     )
                                     if serializers.is_valid():
                                         serializers.save()
-
-                                    obj_data[
-                                        "next_approver"
-                                    ] = ticket_flow_user_for_systems(
-                                        "ticket_admin_system"
-                                    )
-                                    with connection.cursor() as cursor:
-                                        cursor.execute(sql, [Json(obj_data), id_value])
+                                        obj_data["next_approver"] = val[1]
+                                        approval_flow_execute(obj_data)
+                                    else:
+                                        print(serializers.errors)
 
                                 # ticket at ticket admin
                                 case 1:
-                                    approver_emp = request.data["user_info"]
                                     user_info = user_details_from_emp_id(
                                         (json.loads(approver_emp))
                                     )
 
-                                    obj = TicketSystemModel.objects.get(
-                                        id=request.data["id"]
+                                    val = res_body_for_erp_tkt(
+                                        request.data["approver_status"],
+                                        ticket_flow_user_for_systems("it_head"),
                                     )
+
                                     serializers = TicketSytemSerializer(
                                         obj,
                                         data={
-                                            "tkt_current_at": ticket_flow_user_for_systems(
-                                                "it_head"
-                                            ),
-                                            "tkt_status": ticket_wf_status[0]
-                                            if request.data["approver_status"] == "0"
-                                            else ticket_wf_status[2],
+                                            "tkt_status": val[0],
+                                            "tkt_current_at": val[1],
                                             "severity": request.data["severity"],
+                                            "req_type": request.data["req_type"],
                                         },
                                     )
-                                    print(request.data)
+
+                                    # FILE UPLAOD LOGIC
                                     if serializers.is_valid():
                                         obj = serializers.save()
                                         n = str(request.data["file_count"])
@@ -454,52 +425,49 @@ def data_by_id(request, id):
                                                 )
                                                 if queryset.is_valid():
                                                     queryset.save()
+                                                else:
+                                                    print(
+                                                        "queryset.errors",
+                                                        queryset.errors,
+                                                    )
+                                    else:
+                                        print("serializers.errors", serializers.errors)
 
-                                    obj_data[
-                                        "next_approver"
-                                    ] = ticket_flow_user_for_systems("it_head")
-                                    with connection.cursor() as cursor:
-                                        cursor.execute(sql, [Json(obj_data), id_value])
+                                    obj_data["next_approver"] = val[0]
+                                    print(val)
+                                    print(obj_data)
+                                    approval_flow_execute(obj_data)
 
                                 # ticket is at it head
                                 case 2:
-                                    approver_emp = request.data["user_info"]
                                     user_info = user_details_from_emp_id(approver_emp)
-                                    obj = TicketSystemModel.objects.get(
-                                        id=request.data["id"]
-                                    )
                                     assign_ticket_to_user = request.data[
                                         "assign_ticket_to_user"
                                     ]
                                     assign_ticket_to_user_id = re.split(
                                         "-", assign_ticket_to_user
                                     )[0]
+                                    val = res_body_for_erp_tkt(
+                                        request.data["approver_status"],
+                                        assign_ticket_to_user_id,
+                                    )
 
                                     serializers = TicketSytemSerializer(
                                         obj,
                                         data={
-                                            "tkt_current_at": assign_ticket_to_user_id,
-                                            "tkt_status": ticket_wf_status[0]
-                                            if request.data["approver_status"] == "0"
-                                            else ticket_wf_status[2],
+                                            "tkt_status": val[0],
+                                            "tkt_current_at": val[1],
                                         },
                                     )
+                                    obj_data["next_approver"] = val[0]
 
                                     if serializers.is_valid():
                                         serializers.save()
-
-                                    obj_data["next_approver"] = assign_ticket_to_user_id
-
-                                    with connection.cursor() as cursor:
-                                        cursor.execute(sql, [Json(obj_data), id_value])
+                                    approval_flow_execute(obj_data)
 
                                     # ticket is with technical user
                                 case 3:
-                                    approver_emp = request.data["user_info"]
                                     user_info = user_details_from_emp_id(approver_emp)
-                                    obj = TicketSystemModel.objects.get(
-                                        id=request.data["id"]
-                                    )
                                     assign_ticket_to_user = request.data[
                                         "assign_ticket_to_user"
                                     ]
@@ -507,31 +475,31 @@ def data_by_id(request, id):
                                         "-", assign_ticket_to_user
                                     )[0]
 
+                                    val = res_body_for_erp_tkt(
+                                        request.data["approver_status"], None
+                                    )
+                                    print(val)
                                     serializers = TicketSytemSerializer(
                                         obj,
                                         data={
-                                            "tkt_current_at": None,
-                                            "tkt_status": ticket_wf_status[3],
+                                            "tkt_status": val[0],
+                                            "tkt_current_at": val[1],
                                         },
                                     )
+                                    obj_data["next_approver"] = val[1]
 
                                     if serializers.is_valid():
                                         serializers.save()
 
-                                    obj_data["next_approver"] = None
-
-                                    with connection.cursor() as cursor:
-                                        cursor.execute(sql, [Json(obj_data), id_value])
-
+                                    approval_flow_execute(obj_data)
                                 case _:
-                                    print("None")
+                                    print("None out of switch case")
 
                     # IF TICKET TYPE IS SYSTEMS
 
                     # EXECUTE THE QUERY WITH THE DYNAMIC VALUES
 
                     return Response({"status_code": status.HTTP_200_OK})
-                    # return Response({"status_code": 202})
                 except Exception as e:
                     print(e)
                     return Response(
@@ -569,6 +537,7 @@ def create(request):
         Userserializers = userManagementSerializer(user_info)
         users_manager = Userserializers.data["manager_code"]
         _data = {}
+
         match request.data["tkt_type"]:
             case "IT INFRA":
                 if request.data["req_type"] == "ISSUES":
@@ -580,7 +549,7 @@ def create(request):
 
         Ticketserializers = TicketSytemSerializer(
             data={
-                "tkt_current_at": users_manager,
+                "tkt_current_at": _data["tkt_current_at"],
                 "tkt_title": request.data["tkt_title"],
                 "tkt_type": request.data["tkt_type"],
                 "req_type": request.data["req_type"],
@@ -588,6 +557,7 @@ def create(request):
                 "requester_emp_no": request.data["requester_emp_no"],
             }
         )
+        print(Ticketserializers)
         if Ticketserializers.is_valid():
             obj = Ticketserializers.save()
             # UPLOAD FILE LOGIC
@@ -665,7 +635,7 @@ def req_type_dynamic_values(request):
 # GET_ALL_USER_LIST
 @api_view(["GET"])
 def get_all_user_list(request):
-    raw_sql_query = "select distinct first_name ,last_name ,emp_no,department  from user_management where emp_no in (select distinct(emp_no) from user_management um where user_status=true );"
+    raw_sql_query = "select distinct first_name ,last_name ,emp_no,department  from user_management where department ='INFORMATION TECHNOLOGY';"
     with connection.cursor() as cursor:
         cursor.execute(raw_sql_query)
         results = cursor.fetchall()
@@ -758,3 +728,13 @@ def ticket_components_view_access(woosee, request):
         else False
     )
     return components
+
+
+def redis_get_string(key):
+    try:
+        r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+        dt = r.get(key)
+        return dt
+    except Exception as e:
+        print("error", e)
+        return Response({"error": e})
