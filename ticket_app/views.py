@@ -30,13 +30,34 @@ import re
 def all_data(request):
     paginator = PageNumberPagination()
     _search_query = request.GET["search"]
-    _emp_no = str(request.GET["woosee"])
+    emp_no = str(request.GET["woosee"])
+
     # check if the user is admin or just user
     _emp_no = (
         ""
-        if _emp_no == ticket_flow_user_for_systems("ticket_admin_system")
-        else _emp_no
+        if (
+            emp_no == ticket_flow_user_for_systems("ticket_admin_system")
+            or emp_no == ticket_flow_user_for_infra("req1", "ticket_admin_infra")
+        )
+        else emp_no
     )
+
+    _tkt_type = ""
+    if not _emp_no:
+        if str(emp_no) == str(ticket_flow_user_for_systems("ticket_admin_system")):
+            _tkt_type = "IT SYSTEMS(ERP ORACLE)"
+        if str(emp_no) == str(ticket_flow_user_for_infra("req1", "ticket_admin_infra")):
+            _tkt_type = "IT INFRA"
+
+    def _req_type():
+        if not _emp_no:
+            if str(_emp_no) == str(ticket_flow_user_for_systems("ticket_admin_system")):
+                return "IT SYSTEMS(ERP ORACLE)"
+            if str(_emp_no) == str(
+                ticket_flow_user_for_infra("req1", "ticket_admin_infra")
+            ):
+                return "IT INFRA"
+
     paginator.page_size = 10
     raw_sql_query = """
         select
@@ -53,8 +74,8 @@ def all_data(request):
         left join user_management um2 on
         	ts.requester_emp_no = um2.emp_no 
         	where 
-        	(tkt_current_at like '%{}%' 
-        	or requester_emp_no like '%{}%')
+        	((tkt_current_at like '%{}%' 
+        	or requester_emp_no like '%{}%') and tkt_type like '%{}%')
          and
         	( ticket_no::text like '%{}%'
             or tkt_type like '%{}%'
@@ -65,6 +86,7 @@ def all_data(request):
     """.format(
         _emp_no,
         _emp_no,
+        _tkt_type,
         _search_query,
         _search_query,
         _search_query,
