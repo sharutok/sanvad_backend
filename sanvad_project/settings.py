@@ -1,4 +1,24 @@
 import os
+import sys
+from dotenv import load_dotenv
+
+ENVIRONMENT = os.environ.get("ENV")
+
+if ENVIRONMENT == "dev":
+    print("loaded dev")
+    load_dotenv(".dev.env")
+
+elif ENVIRONMENT == "prod":
+    print("loaded prod")
+    load_dotenv(".prod.env")
+
+elif ENVIRONMENT == "test":
+    print("loaded prod")
+    load_dotenv(".test.env")
+else:
+    print("missing env variable")
+    sys.exit(1)
+
 
 """
 Django settings for sanvad_project project.
@@ -22,13 +42,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-c(&fxo#q06gp(^d(_+nikm9zs*)@m9=yd8z02q2)^g_ui^pl)t"
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
-
+if ENVIRONMENT == "prod":
+    ALLOWED_HOSTS.append()
 
 # Application definition
 
@@ -91,11 +112,11 @@ WSGI_APPLICATION = "sanvad_project.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "sanvad_dev",
-        "USER": "postgres",
-        "PASSWORD": "root",
-        "HOST": "localhost",
-        "PORT": "5432",
+        "NAME": os.environ.get("POSTGRES_NAME"),
+        "USER": os.environ.get("POSTGRES_USER"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
+        "HOST": os.environ.get("POSTGRES_HOST"),
+        "PORT": os.environ.get("POSTGRES_PORT"),
     }
 }
 
@@ -134,6 +155,10 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
+FILE_SERVE_LINK = "http://{}:{}/media/".format(
+    os.environ.get("FILE_SERVE_IP"), os.environ.get("FILE_SERVE_PORT")
+)
+
 STATIC_URL = "static/"
 
 # Default primary key field type
@@ -145,7 +170,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 10,
 }
-
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
 STATIC_URL = "/static/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"

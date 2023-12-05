@@ -254,6 +254,7 @@ def user_permission_dynamic_values(request):
         # ALL DATA
         case "GET":
             data = r.lrange(key_name, 0, -1)
+            data = sorted(data, key=lambda x: (x.split(":")[0]))
             return Response(data)
         # CREATE
         case "POST":

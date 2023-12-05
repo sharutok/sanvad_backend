@@ -135,6 +135,7 @@ def data_by_id(request, id):
                 "Ticket No": form_serializers.data["ticket_no"],
                 "Ticket Date": date + " " + time,
                 "Employee ID": user_info_serializers.data["emp_no"],
+                "Email ID": user_info_serializers.data["email_id"],
             }
 
             obj = TicketFileUploadModel.objects.filter(ticket_ref_id=id)
@@ -185,6 +186,30 @@ def data_by_id(request, id):
                         tkt_current_at = ""
                         # APPROVED
                         if user_status == "0":
+                            if len(serializers.data["approval_flow"]) >= 3:
+                                tkt_status = ticket_wf_status[0]
+                                tkt_current_at = nextflow
+                            else:
+                                tkt_status = ticket_wf_status[0]
+                                tkt_current_at = nextflow
+                        # REJECTED
+                        if user_status == "1":
+                            tkt_status = ticket_wf_status[2]
+                            tkt_current_at = None
+
+                        # CLOSED
+                        if user_status == "2":
+                            tkt_status = ticket_wf_status[3]
+                            tkt_current_at = None
+                            obj_data["status"] = "2"
+
+                        return [tkt_status, tkt_current_at]
+
+                    def res_body_for_infr_tkt_wf1(user_status, nextflow):
+                        tkt_status = ""
+                        tkt_current_at = ""
+                        # APPROVED
+                        if user_status == "0":
                             if len(serializers.data["approval_flow"]) == 3:
                                 tkt_status = ticket_wf_status[3]
                                 tkt_current_at = None
@@ -201,7 +226,7 @@ def data_by_id(request, id):
                     obj = TicketSystemModel.objects.get(id=request.data["id"])
                     approver_emp = request.data["user_info"]
 
-                    def res_body_for_it_infra(user_status, nextflow):
+                    def res_body_for_infra_tkt_wf2(user_status, nextflow):
                         tkt_status = ""
                         tkt_current_at = ""
                         match request.data["req_type"]:
@@ -240,7 +265,7 @@ def data_by_id(request, id):
                                     match len(serializers.data["approval_flow"]):
                                         # ticket is with admin infra
                                         case 0:
-                                            val = res_body_for_it_infra(
+                                            val = res_body_for_infra_tkt_wf2(
                                                 request.data["approver_status"],
                                                 redis_get_string(
                                                     "it_infra_issues_technical"
@@ -262,7 +287,7 @@ def data_by_id(request, id):
 
                                         # ticket is with technical user
                                         case 1:
-                                            val = res_body_for_it_infra(
+                                            val = res_body_for_infra_tkt_wf2(
                                                 request.data["approver_status"],
                                                 "",
                                             )
@@ -283,15 +308,7 @@ def data_by_id(request, id):
                                     match len(serializers.data["approval_flow"]):
                                         # ticket at manager
                                         case 0:
-                                            # approver_emp = request.data["user_info"]
-                                            # obj = TicketSystemModel.objects.get(
-                                            #     id=request.data["id"]
-                                            # )
-                                            # user_info = user_details_from_emp_id(
-                                            #     (json.loads(approver_emp))
-                                            # )
-
-                                            val = res_body_for_erp_tkt(
+                                            val = res_body_for_infr_tkt_wf1(
                                                 request.data["approver_status"],
                                                 ticket_flow_user_for_infra(
                                                     "req1", "ticket_admin_infra"
@@ -314,7 +331,7 @@ def data_by_id(request, id):
 
                                         # ticket at ticket admin
                                         case 1:
-                                            val = res_body_for_erp_tkt(
+                                            val = res_body_for_infr_tkt_wf1(
                                                 request.data["approver_status"],
                                                 ticket_flow_user_for_systems("it_head"),
                                             )
@@ -344,7 +361,7 @@ def data_by_id(request, id):
                                                 "-", assign_ticket_to_user
                                             )[0]
 
-                                            val = res_body_for_erp_tkt(
+                                            val = res_body_for_infr_tkt_wf1(
                                                 request.data["approver_status"],
                                                 assign_ticket_to_user_id,
                                             )
@@ -365,7 +382,7 @@ def data_by_id(request, id):
 
                                             # ticket is with technical user
                                         case 3:
-                                            val = res_body_for_erp_tkt(
+                                            val = res_body_for_infr_tkt_wf1(
                                                 request.data["approver_status"],
                                                 "",
                                             )
@@ -427,6 +444,9 @@ def data_by_id(request, id):
                                             "tkt_current_at": val[1],
                                             "severity": request.data["severity"],
                                             "req_type": request.data["req_type"],
+                                            "tkt_description": request.data[
+                                                "tkt_description"
+                                            ],
                                         },
                                     )
 
@@ -488,38 +508,61 @@ def data_by_id(request, id):
                                     approval_flow_execute(obj_data)
 
                                     # ticket is with technical user
-                                case 3:
-                                    user_info = user_details_from_emp_id(approver_emp)
-                                    assign_ticket_to_user = request.data[
-                                        "assign_ticket_to_user"
-                                    ]
-                                    assign_ticket_to_user_id = re.split(
-                                        "-", assign_ticket_to_user
-                                    )[0]
 
-                                    val = res_body_for_erp_tkt(
-                                        request.data["approver_status"], None
-                                    )
-                                    print(val)
-                                    serializers = TicketSytemSerializer(
-                                        obj,
-                                        data={
-                                            "tkt_status": val[0],
-                                            "tkt_current_at": val[1],
-                                        },
-                                    )
-                                    obj_data["next_approver"] = val[1]
-
-                                    if serializers.is_valid():
-                                        serializers.save()
-
-                                    approval_flow_execute(obj_data)
+                                # technical user
                                 case _:
-                                    print("None out of switch case")
+                                    if len(serializers.data["approval_flow"]) >= 2:
+                                        assign_ticket_to_user = request.data[
+                                            "assign_ticket_to_user"
+                                        ]
+                                        assign_ticket_to_user_id = re.split(
+                                            "-", assign_ticket_to_user
+                                        )[0]
 
-                    # IF TICKET TYPE IS SYSTEMS
+                                        val = res_body_for_erp_tkt(
+                                            request.data["approver_status"],
+                                            assign_ticket_to_user_id,
+                                        )
 
-                    # EXECUTE THE QUERY WITH THE DYNAMIC VALUES
+                                        serializers = TicketSytemSerializer(
+                                            obj,
+                                            data={
+                                                "tkt_status": val[0],
+                                                "tkt_current_at": val[1],
+                                            },
+                                        )
+
+                                        obj_data["next_approver"] = val[1]
+
+                                        # FILE UPLAOD LOGIC
+                                        if serializers.is_valid():
+                                            obj = serializers.save()
+                                            n = str(request.data["file_count"])
+                                            if n >= "0":
+                                                for i in range(0, int(n)):
+                                                    file = "file{}".format(i + 1)
+                                                    data = {
+                                                        "ticket_ref_id": obj.id,
+                                                        "user_file": request.data[file],
+                                                        "filename": request.data[file],
+                                                    }
+                                                    queryset = (
+                                                        TicketFileUploadSerializer(
+                                                            data=data
+                                                        )
+                                                    )
+                                                    if queryset.is_valid():
+                                                        queryset.save()
+                                                    else:
+                                                        print(
+                                                            "queryset.errors",
+                                                            queryset.errors,
+                                                        )
+                                        else:
+                                            print(
+                                                "serializers.errors", serializers.errors
+                                            )
+                                        approval_flow_execute(obj_data)
 
                     return Response({"status_code": status.HTTP_200_OK})
                 except Exception as e:
@@ -558,8 +601,8 @@ def create(request):
         user_info = UserManagement.objects.get(emp_no=requester_emp_no)
         Userserializers = userManagementSerializer(user_info)
         users_manager = Userserializers.data["manager_code"]
-        _data = {}
 
+        _data = {"tkt_current_at": users_manager}
         match request.data["tkt_type"]:
             case "IT INFRA":
                 if request.data["req_type"] == "ISSUES":
@@ -657,7 +700,10 @@ def req_type_dynamic_values(request):
 # GET_ALL_USER_LIST
 @api_view(["GET"])
 def get_all_user_list(request):
-    raw_sql_query = "select distinct first_name ,last_name ,emp_no,department  from user_management where department ='INFORMATION TECHNOLOGY';"
+    woosee = request.GET["woosee"]
+    raw_sql_query = "select distinct first_name ,last_name ,emp_no,department from user_management where department ='INFORMATION TECHNOLOGY' and emp_no !='{}';".format(
+        woosee
+    )
     with connection.cursor() as cursor:
         cursor.execute(raw_sql_query)
         results = cursor.fetchall()
@@ -708,36 +754,54 @@ def ticket_components_view_access(woosee, request):
         "submit_btn": False,
         "comments_box": False,
         "severity_component": False,
+        "close_radio_btn": False,
     }
 
+    components["close_radio_btn"] = (
+        True if len(request["approval_flow"]) >= 3 else False
+    )
     components["assign_ticket_comp"] = (
-        True if str(ticket_flow_user_for_systems("it_head")) == str(woosee) else False
+        True
+        if (
+            str(ticket_flow_user_for_systems("it_head")) == str(woosee)
+            or len(request["approval_flow"]) >= 3
+        )
+        else False
     )
 
     def submit_btn():
-        if str(request["requester_emp_no"]) != str(woosee):
-            if request["tkt_current_at"] != str(woosee):
-                return False
-                return True
-            return True
-        else:
+        if str(request["tkt_current_at"]) != str(woosee):
             return False
+        else:
+            return True
 
     components["submit_btn"] = submit_btn()
 
     components["approval_status"] = (
-        True if str(request["requester_emp_no"]) != str(woosee) else False
+        True if str(request["tkt_current_at"]) == str(woosee) else False
     )
+
     components["comments_box"] = (
-        True if str(request["requester_emp_no"]) != str(woosee) else False
+        True if str(request["tkt_current_at"]) == str(woosee) else False
     )
+
     components["upload_documents"] = (
         True
-        if str(
-            ticket_flow_user_for_systems("ticket_admin_system")
-            or ticket_flow_user_for_infra("req1", "ticket_admin_infra")
+        if (
+            str(
+                ticket_flow_user_for_systems("ticket_admin_system")
+                or ticket_flow_user_for_infra("req1", "ticket_admin_infra")
+            )
+            == str(woosee)
+            or (
+                True
+                if (
+                    (len(request["approval_flow"])) >= 3
+                    and str(request["tkt_current_at"]) == str(woosee)
+                )
+                else False
+            )
         )
-        == str(woosee)
         else False
     )
     components["severity_component"] = (

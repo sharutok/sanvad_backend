@@ -2,6 +2,7 @@ from django.contrib.postgres.fields import ArrayField
 from ticket_app.models import TicketSystemModel, TicketFileUploadModel
 from rest_framework import serializers
 import uuid
+from sanvad_project.settings import FILE_SERVE_LINK
 
 
 class TicketSytemSerializer(serializers.ModelSerializer):
@@ -19,7 +20,7 @@ class TicketFileUploadSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_mod_file_path(self, object):
-        return str("http://localhost:8000/media/" + str(object.user_file))
+        return str(FILE_SERVE_LINK + str(object.user_file))
 
     def get_mod_file_name(self, object):
         return str(object.user_file).split("/")[-1]

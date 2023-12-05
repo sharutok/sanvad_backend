@@ -459,6 +459,7 @@ def capex_components_view_access(woosee, request):
         "status_close": False,
         "submit_btn": False,
         "comments_box": False,
+        "update_btn": False,
     }
     components["approval_status"] = (
         True if woosee != request["capex_raised_by"] else False
@@ -467,6 +468,9 @@ def capex_components_view_access(woosee, request):
     components["comments_box"] = True if woosee != request["capex_raised_by"] else False
     components["approval_status"] = (
         True if woosee != request["capex_raised_by"] else False
+    )
+    components["update_btn"] = (
+        True if request["capex_current_at"] == request["capex_raised_by"] else False
     )
 
     return components

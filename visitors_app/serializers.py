@@ -2,6 +2,7 @@ from django.contrib.postgres.fields import ArrayField
 from visitors_app.models import VisitorsManagement, VisitorPhoto
 from rest_framework import serializers
 import uuid
+from sanvad_project.settings import FILE_SERVE_LINK
 
 
 class VisitorsManagementSerializer(serializers.ModelSerializer):
@@ -23,4 +24,4 @@ class VisitorPhotoSerializer(serializers.ModelSerializer):
         fields = ["mod_image"]
 
     def get_mod_image(self, object):
-        return str("http://localhost:8000/media/" + str(object.image))
+        return str(FILE_SERVE_LINK + str(object.image))
