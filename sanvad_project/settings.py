@@ -3,18 +3,18 @@ import sys
 from dotenv import load_dotenv
 
 ENVIRONMENT = os.environ.get("ENV")
-
+print(ENVIRONMENT)
 if ENVIRONMENT == "dev":
     print("loaded dev")
-    load_dotenv(".dev.env")
+    load_dotenv(".env")
 
 elif ENVIRONMENT == "prod":
     print("loaded prod")
-    load_dotenv(".prod.env")
+    load_dotenv(".env.production")
 
-elif ENVIRONMENT == "test":
+elif ENVIRONMENT == "stage":
     print("loaded prod")
-    load_dotenv(".test.env")
+    load_dotenv(".env.stagging")
 else:
     print("missing env variable")
     sys.exit(1)
@@ -49,7 +49,10 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 if ENVIRONMENT == "prod":
-    ALLOWED_HOSTS.append()
+    ALLOWED_HOSTS.append(os.environ.get("ALLOWED_HOSTS"))
+
+if ENVIRONMENT == "stage":
+    ALLOWED_HOSTS.append(os.environ.get("ALLOWED_HOSTS"))
 
 # Application definition
 
