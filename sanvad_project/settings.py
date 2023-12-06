@@ -13,8 +13,8 @@ elif ENVIRONMENT == "prod":
     load_dotenv(".env.production")
 
 elif ENVIRONMENT == "stage":
-    print("loaded prod")
-    load_dotenv(".env.stagging")
+    print("loaded stage")
+    load_dotenv(".env.staging")
 else:
     print("missing env variable")
     sys.exit(1)
@@ -47,12 +47,22 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+CORS_ALLOWED_ORIGINS = []
 ALLOWED_HOSTS = []
 if ENVIRONMENT == "prod":
     ALLOWED_HOSTS.append(os.environ.get("ALLOWED_HOSTS"))
+    CORS_ALLOWED_ORIGINS.append(os.environ.get("CORS_ALLOWED_ORIGINS"))
 
 if ENVIRONMENT == "stage":
     ALLOWED_HOSTS.append(os.environ.get("ALLOWED_HOSTS"))
+    CORS_ALLOWED_ORIGINS.append(os.environ.get("CORS_ALLOWED_ORIGINS"))
+
+if ENVIRONMENT == "dev":
+    ALLOWED_HOSTS.append(os.environ.get("ALLOWED_HOSTS"))
+    CORS_ALLOWED_ORIGINS.append(os.environ.get("CORS_ALLOWED_ORIGINS"))
+
+print(CORS_ALLOWED_ORIGINS)
+print(ALLOWED_HOSTS)
 
 # Application definition
 
@@ -90,9 +100,6 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "sanvad_project.urls"
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-]
 
 TEMPLATES = [
     {
