@@ -2,4 +2,4 @@
 .env
 media/*
 
-**/migrations/
+**/migrations/*
