@@ -2,22 +2,9 @@ import os
 import sys
 from dotenv import load_dotenv
 
+load_dotenv(".env")
 ENVIRONMENT = os.environ.get("ENV")
 print(ENVIRONMENT)
-if ENVIRONMENT == "dev":
-    print("loaded dev")
-    load_dotenv(".env")
-
-elif ENVIRONMENT == "prod":
-    print("loaded prod")
-    load_dotenv(".env.production")
-
-elif ENVIRONMENT == "stage":
-    print("loaded stage")
-    load_dotenv(".env.staging")
-else:
-    print("missing env variable")
-    sys.exit(1)
 
 
 """
@@ -49,17 +36,9 @@ DEBUG = True
 
 CORS_ALLOWED_ORIGINS = []
 ALLOWED_HOSTS = []
-if ENVIRONMENT == "prod":
-    ALLOWED_HOSTS.append(os.environ.get("ALLOWED_HOSTS"))
-    CORS_ALLOWED_ORIGINS.append(os.environ.get("CORS_ALLOWED_ORIGINS"))
 
-if ENVIRONMENT == "stage":
-    ALLOWED_HOSTS.append(os.environ.get("ALLOWED_HOSTS"))
-    CORS_ALLOWED_ORIGINS.append(os.environ.get("CORS_ALLOWED_ORIGINS"))
-
-if ENVIRONMENT == "dev":
-    ALLOWED_HOSTS.append(os.environ.get("ALLOWED_HOSTS"))
-    CORS_ALLOWED_ORIGINS.append(os.environ.get("CORS_ALLOWED_ORIGINS"))
+ALLOWED_HOSTS.append(os.environ.get("ALLOWED_HOSTS"))
+CORS_ALLOWED_ORIGINS.append(os.environ.get("CORS_ALLOWED_ORIGINS"))
 
 print(CORS_ALLOWED_ORIGINS)
 print(ALLOWED_HOSTS)
