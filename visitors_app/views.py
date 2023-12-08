@@ -13,7 +13,7 @@ from datetime import datetime
 from rest_framework.pagination import PageNumberPagination
 from django.db import connection
 import json
-import redis
+from sanvad_project.settings import r
 from io import BytesIO
 import base64, binascii
 import os
@@ -264,6 +264,6 @@ def visitor_list_component_view_access(request):
 
 
 def security_det():
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     key_name = "security_admin"
     return r.lrange(key_name, 0, -1)

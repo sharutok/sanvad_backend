@@ -11,7 +11,7 @@ from capex_app.serializers import (
 from rest_framework import status
 import pandas as pd
 import requests
-import redis
+from sanvad_project.settings import r
 import os
 import json
 from django.db import connection
@@ -527,7 +527,7 @@ capex_wf_status = {
 
 
 def get_capex_admin():
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     key_name = "capex_admin"
     data = r.lrange(key_name, 0, -1)
     return data

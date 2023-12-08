@@ -1,6 +1,7 @@
 import os
 import sys
 from dotenv import load_dotenv
+import redis
 
 load_dotenv(".env")
 ENVIRONMENT = os.environ.get("ENV")
@@ -109,6 +110,16 @@ DATABASES = {
     }
 }
 
+try:
+    r = redis.Redis(
+        host="localhost",
+        port=6379,
+        decode_responses=True,
+        password=os.environ.get("REDIS_PASSWORD"),
+    )
+    print("Connected to Redis DB successfull")
+except Exception as e:
+    print("Redis DB Unsuccessfull")
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

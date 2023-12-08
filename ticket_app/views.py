@@ -14,7 +14,7 @@ from rest_framework import status
 import requests
 from rest_framework.pagination import PageNumberPagination
 
-import redis
+from sanvad_project.settings import r
 import json
 import uuid
 from psycopg2.extras import Json
@@ -654,7 +654,7 @@ def create(request):
 # DYNAMIC VALUES- ticket_type
 @api_view(["POST", "GET", "DELETE"])
 def ticket_type_dynamic_values(request):
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     key_name = "ticket_type"
     match request.method:
         # ALL DATA
@@ -676,10 +676,10 @@ def ticket_type_dynamic_values(request):
 # DYNAMIC VALUES- requirement_type
 @api_view(["POST", "PUT", "DELETE"])
 def req_type_dynamic_values(request):
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     key_name = "requirement_type"
     index = request.data["index"]
-    key_name = "{}:{}".format(key_name, index)
+    key_name = "{}_{}".format(key_name, index)
     match request.method:
         # GET ALL DATA
         case "POST":
@@ -717,7 +717,7 @@ def user_details_from_emp_id(emp_no):
 
 
 def ticket_flow_user_for_systems(type):
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     data = json.loads(r.get("ticket_wf_systems"))
     emp = ""
     for d in data:
@@ -729,7 +729,7 @@ def ticket_flow_user_for_systems(type):
 
 
 def ticket_flow_user_for_infra(req, type):
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     data = json.loads(r.get("ticket_wf_infra"))
     emp = ""
     for dat in data:
@@ -818,7 +818,7 @@ def ticket_components_view_access(woosee, request):
 
 def redis_get_string(key):
     try:
-        r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+        ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
         dt = r.get(key)
         return dt
     except Exception as e:

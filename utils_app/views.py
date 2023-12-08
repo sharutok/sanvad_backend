@@ -8,7 +8,7 @@ from rest_framework.decorators import api_view
 import mimetypes
 from django.http import HttpResponse
 from wsgiref.util import FileWrapper
-import redis
+from sanvad_project.settings import r
 from django.http import FileResponse
 from django.conf import settings
 import os
@@ -156,7 +156,7 @@ def download_excel(request):
 
 @api_view(["GET"])
 def weather_temp(request):
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     return Response({"data": json.loads(r.get("weather_temp"))})
 
 
@@ -279,3 +279,46 @@ def plant_department_values(request):
         _plant_name_data.append(x["plant_name"])
 
     return Response({"plant_data": _plant_name_data, "department": _department_data})
+
+
+@api_view(["GET"])
+def export_keys(output_file):
+    try:
+        output_file = "exported_keys.txt"
+        with open(output_file, "w") as file:
+            for key in r.scan_iter(match="*"):
+                key_str = key.decode("utf-8") if isinstance(key, bytes) else key
+                value = r.dump(key)
+                file.write(f"{key_str}:{value.hex()}\n")
+        return Response(200)
+    except Exception as e:
+        return Response(400)
+
+
+@api_view(["GET"])
+def import_keys():
+    try:
+        input_file = "exported_keys.txt"
+        r = redis.Redis(
+            host=os.environ.get("SERVER_REDIS_HOST"),
+            port=os.environ.get("SERVER_REDIS_PORT"),
+            password=os.environ.get("SERVER_REDIS_PASSWORD"),
+        )
+
+        r.flushall()
+        with open(input_file, "r") as file:
+            for line in file:
+                parts = line.strip().split(":", 1)
+                key_str = parts[0]
+                value_hex = parts[1] if len(parts) > 1 else ""
+                key = key_str.encode("utf-8")
+
+                try:
+                    value = bytes.fromhex(value_hex)
+                except ValueError as e:
+                    print(f"Error decoding hexadecimal value for key {key_str}: {e}")
+                    continue
+                r.restore(key, 0, value)
+                return Response(200)
+    except Exception as e:
+        return Response(400)

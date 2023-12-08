@@ -9,7 +9,7 @@ from rest_framework.pagination import PageNumberPagination
 from datetime import datetime
 from django.db import connection
 import json
-import redis
+from sanvad_project.settings import r
 import bcrypt
 import smtplib
 from email.mime.text import MIMEText
@@ -137,7 +137,7 @@ def login_verify_user(request):
 @api_view(["GET"])
 def birthday_list(request):
     try:
-        r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+        ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
         return Response({"data": json.loads(r.get("todays_birthday"))})
     except e:
         print("error", e)
@@ -248,7 +248,7 @@ def hash_password():
 # DYNAMIC VALUES- user_permission
 @api_view(["POST", "GET", "DELETE"])
 def user_permission_dynamic_values(request):
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     key_name = "user_permission"
     match request.method:
         # ALL DATA

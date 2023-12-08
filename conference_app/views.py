@@ -8,7 +8,7 @@ from conference_app.serializers import ConferenceBookingSerializer
 from rest_framework import status
 import requests
 from datetime import datetime, timedelta
-import redis
+from sanvad_project.settings import r
 from rest_framework.pagination import PageNumberPagination
 
 
@@ -205,7 +205,7 @@ def get_data_by_cof_room_and_date(request):
 
 @api_view(["GET", "PUT", "DELETE"])
 def conference_rooms_dynamic_values(request):
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     key_name = "conference_rooms"
     match request.method:
         # GET ALL DATA

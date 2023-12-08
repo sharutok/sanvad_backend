@@ -13,7 +13,7 @@ from rest_framework import status
 import requests
 from rest_framework.pagination import PageNumberPagination
 
-import redis
+from sanvad_project.settings import r
 import json
 import uuid
 from psycopg2.extras import Json
@@ -25,7 +25,7 @@ from django.db import connection
 
 @api_view(["GET", "PUT", "DELETE"])
 def ticket_wf_systems(request):
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     key_name = "ticket_wf_systems"
     match request.method:
         # GET ALL DATA
@@ -47,7 +47,7 @@ def ticket_wf_systems(request):
 
 @api_view(["GET", "PUT", "DELETE"])
 def ticket_wf_infra(request):
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     key_name = "ticket_wf_infra"
     match request.method:
         # GET ALL DATA
@@ -69,7 +69,7 @@ def ticket_wf_infra(request):
 
 @api_view(["GET", "PUT", "DELETE"])
 def capex_wf_plant(request):
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     key_name = "capex_wf_plant"
     match request.method:
         # GET ALL DATA
@@ -91,7 +91,7 @@ def capex_wf_plant(request):
 
 @api_view(["GET", "PUT", "DELETE"])
 def capex_wf_corporate(request):
-    r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     key_name = "capex_wf_corporate"
     match request.method:
         # GET ALL DATA
