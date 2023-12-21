@@ -151,6 +151,8 @@ def create(request):
     if serializers.is_valid():
         serializers.save()
         return Response({"mess": "Created", "status": status.HTTP_200_OK})
+    else:
+        print(serializers.errors)
     return Response(
         {
             "mess": "Not",

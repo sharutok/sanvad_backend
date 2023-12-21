@@ -6,90 +6,61 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="padding: 1rem;font-family: 'Source Sans Pro', sans-serif;">
-    <span >Hi <span> {}</span>,</span>
-    <div class="mail-body">
-        <div class="mail-content">    
-            <img src="ticket mail header.png" width="700" alt="Conference Header">
-            <div class="mail-container">
-                <div class="title">
-                    <span>Conference Details</span>
+<body style="padding: 1rem; font-family: 'Source Sans Pro', sans-serif;">
+
+    <span style="display: inline-block;">
+        Hi 
+        <span style="display: inline-block;">{}</span>,
+    </span>
+
+    <div style="display: flex;">
+        <div style="width: 600px; margin-top: 1rem; display: grid; grid-template-columns: auto; gap: 2rem; width:fit-content;border-radius: 10px;padding:2rem">
+            <img src="https://adorwelding.org/Adorhub_uploads/Conference.png" width="800" alt="Conference Header" style="display: flex;justify-content: center;">
+            <br>
+            <div style="color: #555259; padding: 0 2rem;">
+                <div style="margin-bottom: 2rem;">
+                    <span style="font-size: 2rem; font-weight: 700;">Conference Details</span>
                     <hr>
+                    <br>
                 </div>
-                <div class="indv-content">
-                <strong>Agenda: </strong>
-                <span>{}</span>
-            </div>
-            <div class="conf-room">
-                    <div class="indv-content ">
-                        <strong>Location: </strong>
-                        <span>{}</span>
-                    </div>
+
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                    <strong>Agenda: </strong>
+                    <span>{}</span>
                 </div>
-                <div class="indv-content">
+
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                    <strong>Location: </strong>
+                    <span>{}</span>
+                </div>
+
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
                     <strong>Start Date/Time: </strong>
                     <span>{}</span>
                 </div>
-                <div class="indv-content">
+
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
                     <strong>End Date/Time: </strong>
-                <span>{}</span>
-            </div>
-            <div class="indv-content">
-                <strong>Booked By: </strong>
                     <span>{}</span>
                 </div>
-                <div class="indv-content">
+
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                    <strong>Booked By: </strong>
+                    <span>{}</span>
+                </div>
+
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
                     <strong>Department:</strong>
                     <span>{}</span>
                 </div>
+
             </div>
-        <img src="mail footer.png" width="700" alt="Conference Footer">
+<br>
+            <img src="https://adorwelding.org/Adorhub_uploads/Footer.png" width="700" alt="Conference Footer" style="display: flex;justify-content: center;">
+
+        </div>
     </div>
-    </div>
+<br/>
 </body>
 </html>
 
-<style>
-    .title>span{
-    font-size: 2rem;   
-    font-weight: 700;
-    }
-    .title{
-        margin-bottom: 2rem;
-    }
-    h2{
-        color: #555259;
-    }
-.new{
-    width: max-content;
-}
-.mail-body{
-    display: flex;
-    justify-content: center;
-}
-.mail-content{
-    width: 600px;
-    margin-top: 1rem;
-    display: grid;
-    grid-template-columns: auto;
-    gap: 2rem; 
-    
-}
-.indv-content{
-    display: flex;
-    gap:2px;
-    text-align: center;
-    margin-bottom: .5rem;
-}
-.date-time{
-    display: flex;
-    
-}
-.conf-room>.indv-content>span,strong{
-    text-align: center;
-}
-.mail-container{
-     color: #555259;
-    padding: 0 2rem;
-}
-</style>

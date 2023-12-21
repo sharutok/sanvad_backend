@@ -151,7 +151,6 @@ def data_by_id(request, id):
             )
         case "PUT":
             if request.data["tkt_status"] != ticket_wf_status[3]:
-                # print(request.data["tkt_status"])
                 try:
                     id_value = "{}".format(request.data["id"])
                     serializers = TicketSytemSerializer(
@@ -258,6 +257,7 @@ def data_by_id(request, id):
                             print("approval_flow_execute", e)
 
                     # IF TICKET TYPE IS INFRA
+
                     match request.data["tkt_type"]:
                         case "IT INFRA":
                             match request.data["req_type"]:
@@ -402,16 +402,13 @@ def data_by_id(request, id):
                             match len(serializers.data["approval_flow"]):
                                 # ticket at manager
                                 case 0:
-                                    user_info = user_details_from_emp_id(
-                                        (json.loads(approver_emp))
-                                    )
-
                                     val = res_body_for_erp_tkt(
                                         request.data["approver_status"],
                                         ticket_flow_user_for_systems(
                                             "ticket_admin_system"
                                         ),
                                     )
+
                                     serializers = TicketSytemSerializer(
                                         obj,
                                         data={
@@ -419,6 +416,7 @@ def data_by_id(request, id):
                                             "tkt_current_at": val[1],
                                         },
                                     )
+
                                     if serializers.is_valid():
                                         serializers.save()
                                         obj_data["next_approver"] = val[1]
@@ -428,10 +426,6 @@ def data_by_id(request, id):
 
                                 # ticket at ticket admin
                                 case 1:
-                                    user_info = user_details_from_emp_id(
-                                        (json.loads(approver_emp))
-                                    )
-
                                     val = res_body_for_erp_tkt(
                                         request.data["approver_status"],
                                         ticket_flow_user_for_systems("it_head"),
@@ -482,7 +476,6 @@ def data_by_id(request, id):
 
                                 # ticket is at it head
                                 case 2:
-                                    user_info = user_details_from_emp_id(approver_emp)
                                     assign_ticket_to_user = request.data[
                                         "assign_ticket_to_user"
                                     ]

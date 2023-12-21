@@ -86,14 +86,25 @@ def data_by_id(request, id):
 # CREATE
 @api_view(["POST"])
 def create(request):
-    serializers = userManagementSerializer(data=request.data)
-    unsalted_password = str(serializers.data["password"]).encode("utf-8")
-    salted_password = bcrypt.hashpw(unsalted_password, bcrypt.gensalt(rounds=10))
-    serializers.data["password"] = salted_password
-    if serializers.is_valid():
-        serializers.save()
+    try:
+        unsalted_password = str(request.data["password"]).encode("utf-8")
+        salted_password = bcrypt.hashpw(unsalted_password, bcrypt.gensalt(rounds=10))
+        request.data["password"] = salted_password.decode()
+        serializers = userManagementSerializer(data=request.data)
+        if serializers.is_valid():
+            print("created")
+            serializers.save()
+        else:
+            print("error", serializers.errors)
         return Response({"mess": "Created", "status": 200})
-    return Response({"mess": "Not", "status": 400, "err": serializers.errors})
+    except Exception as e:
+        print("error", e)
+        return Response(
+            {
+                "mess": "Not",
+                "status": 400,
+            }
+        )
 
 
 # VERIFY USER

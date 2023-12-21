@@ -1,7 +1,5 @@
 .env.*
 .env
 media/*
-
 **/migrations/*
-
 exported_keys.txt

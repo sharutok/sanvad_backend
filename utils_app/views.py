@@ -1,4 +1,12 @@
+from django.core.mail import send_mail
+from django.shortcuts import render
+import smtplib
+from dotenv import load_dotenv
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from django.db.models import Q
 from django.db import connection
+from sanvad_app.serializers import userManagementSerializer
 from django.shortcuts import render
 import pandas
 from rest_framework import status
@@ -15,7 +23,7 @@ import os
 from django.db.models import F
 import datetime
 from utils_app.serializers import AnnounsmentSerializer
-
+import redis
 from utils_app.models import Announsment
 from sanvad_app.models import UserManagement
 from ticket_app.models import TicketSystemModel
@@ -23,6 +31,7 @@ from conference_app.models import ConferenceBooking
 from visitors_app.models import VisitorsManagement
 from capex_app.models import Capex, Capex1
 from sanvad_app.models import EmployeeMappings
+import random
 
 # Create your views here.
 
@@ -281,8 +290,8 @@ def plant_department_values(request):
     return Response({"plant_data": _plant_name_data, "department": _department_data})
 
 
-@api_view(["GET"])
-def export_keys(output_file):
+# @api_view(["GET"])
+def export_keys():
     try:
         output_file = "exported_keys.txt"
         with open(output_file, "w") as file:
@@ -290,12 +299,12 @@ def export_keys(output_file):
                 key_str = key.decode("utf-8") if isinstance(key, bytes) else key
                 value = r.dump(key)
                 file.write(f"{key_str}:{value.hex()}\n")
-        return Response(200)
+        print("done exporting")
     except Exception as e:
-        return Response(400)
+        print(400)
 
 
-@api_view(["GET"])
+# @api_view(["GET"])
 def import_keys():
     try:
         input_file = "exported_keys.txt"
@@ -319,6 +328,128 @@ def import_keys():
                     print(f"Error decoding hexadecimal value for key {key_str}: {e}")
                     continue
                 r.restore(key, 0, value)
-                return Response(200)
+                print("done importing")
     except Exception as e:
+        return print(400, e)
+
+
+# export_keys()
+# import_keys()
+
+
+@api_view(["GET"])
+def wish_birthday(request):
+    try:
+        first_name = request.GET["firstName"]
+        last_name = request.GET["lastName"]
+        woosee = request.GET["woosee"]
+
+        a = select_sql(
+            "select email_id from user_management um where first_name like '%{}%' and last_name like '%{}%'".format(
+                first_name, last_name
+            )
+        )
+
+        b = select_sql(
+            "select first_name ,last_name from user_management um2 where emp_no ='{}';".format(
+                woosee
+            )
+        )
+
+        email_id = a[0]["email_id"]
+        by_fn = b[0]["first_name"]
+        by_ln = b[0]["last_name"]
+
+        which__birthday_line = random.randint(0, 5)
+
+        send_email(
+            to_email_id=email_id,
+            to_name=first_name + " " + last_name,
+            from_name=by_fn + " " + by_ln,
+            img=imageLink[which__birthday_line],
+        )
+        print("Email sent successfully.")
+        return Response({"status_code": status.HTTP_200_OK})
+    except Exception as e:
+        print(e)
+        return Response({"status_code": status.HTTP_400_BAD_REQUEST})
+
+
+def send_email(
+    to_email_id,
+    to_name,
+    from_name,
+    img,
+):
+    load_dotenv()
+    subject = "Adorhub - We Heard It’s Your Birthday!"
+    from_email = os.getenv("SENDER_EMAIL")
+    to_email = to_email_id
+    smtp_server = os.getenv("SMTP_SERVER")
+    smtp_port = 587
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+
+    html_content = """
+    <!DOCTYPE html>
+                 <html lang="en">
+                   <head>
+                     <link rel="preconnect" href="https://fonts.googleapis.com">
+                     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script&family=Quicksand:wght@300&display=swap" rel="stylesheet">
+                     <meta charset="UTF-8" />
+                     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+                     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                   </head>
+                   <body style="padding: 1rem; font-family: 'Dancing Script', cursive; font-family: 'Quicksand', sans-serif;">
+                     <span style="font-size: 2rem;">Dear <span> {} </span>,</span>
+                     <div style="margin-top: 2rem; display: flex; margin-left:5rem ">
+                         <img width=750 src="{}" alt="">
+                     </div>
+                     <br />
+                     <p style="font-weight: 600;margin-top:2rem">From {}</p>
+                     <img
+                       src="https://upload.wikimedia.org/wikipedia/commons/9/98/Ador_Welding_logo.png"
+                       alt="Ador Logo"
+                       width="100"
+                       height="50"
+                     />
+                     <br />
+                     <br />
+                   </body>
+                 </html>
+    """.format(
+        to_name, img, from_name
+    )
+
+    # Create the MIME object
+    msg = MIMEMultipart()
+    msg["From"] = from_email
+    msg["To"] = to_email
+    msg["Subject"] = subject
+
+    msg.attach(MIMEText(html_content, "html"))
+
+    try:
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+
+        server.sendmail(from_email, to_email, msg.as_string())
+
+        server.quit()
+        print("sent mail")
+        return Response(200)
+    except Exception as e:
+        print("error in mail", e)
         return Response(400)
+
+
+imageLink = [
+    "https://images.unsplash.com/photo-1583875762487-5f8f7c718d14?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8YmlydGhkYXl8ZW58MHx8MHx8fDA%3D",
+    "https://images.unsplash.com/photo-1464349153735-7db50ed83c84?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8YmlydGhkYXl8ZW58MHx8MHx8fDA%3D",
+    "https://images.unsplash.com/photo-1531956531700-dc0ee0f1f9a5?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fGJpcnRoZGF5fGVufDB8fDB8fHww",
+    "https://plus.unsplash.com/premium_photo-1663839412026-51a44cfadfb8?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MzN8fGJpcnRoZGF5fGVufDB8fDB8fHww",
+    "https://plus.unsplash.com/premium_photo-1677221924546-d963753f007d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mzd8fGJpcnRoZGF5fGVufDB8fDB8fHww",
+    "https://plus.unsplash.com/premium_photo-1663839411935-07fdc76a8bed?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NDF8fGJpcnRoZGF5fGVufDB8fDB8fHww",
+]

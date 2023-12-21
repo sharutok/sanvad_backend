@@ -7,6 +7,7 @@ from utils_app.views import (
     serve_files,
     announcement,
     plant_department_values,
+    wish_birthday,
 )
 
 urlpatterns = [
@@ -15,6 +16,7 @@ urlpatterns = [
     path("serve/file/", serve_files, name="serve-files"),
     path("add/announsment/", announcement, name="announcement"),
     path("list/dept-plant/", plant_department_values, name="plant-department-values"),
+    path("birthday/wish/", wish_birthday, name="wish-birthday"),
 ]
 
 # urlpatterns += staticfiles_urlpatterns()
