@@ -1,0 +1,7 @@
+.env.*
+.env
+media/*
+**/migrations/*
+exported_keys.txt
+sanvad_project/settings.py
+.gitignoreadd 
