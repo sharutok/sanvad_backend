@@ -18,6 +18,7 @@ from io import BytesIO
 import base64, binascii
 import os
 from django.core.files.base import ContentFile
+from ticket_app.views import user_details_from_emp_id
 
 
 # GET ALL DATA.
@@ -27,9 +28,19 @@ def all_data(request):
     search_query = request.GET["search"]
     woosee = "" if request.GET["woosee"] in security_det() else request.GET["woosee"]
 
+    def _plant(emp_no):
+        data = user_details_from_emp_id(emp_no)
+        return (data["plant_name"].split(" ")[0]).upper()
+
+    plant = (
+        _plant(request.GET["woosee"]) if request.GET["woosee"] in security_det() else ""
+    )
+    print(plant)
+
     paginator.page_size = 10
     raw_sql_query = """select
 	vm.*,
+    upper(um.plant_name) plant_name,
 	concat(um.first_name,
 	' ',
 	um.last_name)name,
@@ -39,11 +50,11 @@ def all_data(request):
 	to_char(vm.end_date_time ::timestamp ,
 	'DD-MM-YYYY hh:mi AM') mod_end_date_time
     from
-    	visitors_management vm
+    visitors_management vm
     left join user_management um on
 	vm.raised_by = um.emp_no
-    where vm.raised_by like '%{}%' and  vm.delete_flag=false and  (vm.reason_for_visit like '%{}%' or vm.raised_by like '%{}%' ) order by updated_at desc;""".format(
-        woosee, search_query, search_query
+    where vm.raised_by like '%{}%' and vm.delete_flag=false and UPPER(plant_name) ilike '%{}%' and (vm.reason_for_visit like '%{}%' or vm.raised_by like '%{}%' ) order by updated_at desc;""".format(
+        woosee, plant, search_query, search_query
     )
 
     with connection.cursor() as cursor:

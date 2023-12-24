@@ -1,3 +1,4 @@
+from ftplib import FTP
 from django.core.mail import send_mail
 from django.shortcuts import render
 import smtplib
@@ -453,3 +454,102 @@ imageLink = [
     "https://plus.unsplash.com/premium_photo-1677221924546-d963753f007d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mzd8fGJpcnRoZGF5fGVufDB8fDB8fHww",
     "https://plus.unsplash.com/premium_photo-1663839411935-07fdc76a8bed?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NDF8fGJpcnRoZGF5fGVufDB8fDB8fHww",
 ]
+
+
+@api_view(["POST"])
+def new_user_creation_mail(request):
+    try:
+        _data = {
+            "name": request.data["name"],
+            "email_id": request.data["email_id"],
+            "password": request.data["password"],
+        }
+
+        load_dotenv()
+        subject = "ADORHUB Login Credentials"
+        from_email = os.getenv("SENDER_EMAIL")
+        to_email = _data["email_id"]
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = os.getenv("SMTP_PORT")
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+
+        html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro' rel='stylesheet' type='text/css'>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="padding: 1rem; font-family: 'Source Sans Pro', sans-serif;">
+        <div style="display: flex;">
+            <div style="width: 600px; margin-top: 1rem; display: grid; grid-template-columns: auto; gap: 2rem; width:fit-content;border-radius: 10px;padding:2rem">
+                <br>
+                <img src="https://adorwelding.org/Adorhub_uploads/Login.png" width="800" alt="Conference Header" style="display: flex;justify-content: center;">
+                <div style="color: #555259; padding: 0 2rem;">
+                    <div style="margin-bottom: 2rem;">
+                        <br>
+                        <span style="font-size: 2rem; font-weight: 700;">Login Credentials</span>
+                        <hr>
+                    </div>
+                    <span style="display: inline-block;">
+                        Hi 
+                        <span style="display: inline-block;">{}</span>,
+                    </span>
+                    <br>
+                    <br>
+                    <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                        <span>You have been granted access to <b>AdorHub Application</b>. Below are the Log In Credentials</span>
+                    </div>
+                    <br>
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                    <span>Username: </span>
+                    <span>{}</span>
+                </div>
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                    <span>Password: </span>
+                    <span>{}</span>
+                </div>
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                    <span>Website Link: </span>
+                    <a href="https://ador.net.in/login">ADORHUB</a>
+                </div>
+            </div>
+            <br>
+            <div style="display: flex;justify-content: center;">
+                <img src="https://adorwelding.org/Adorhub_uploads/Footer.png" width="700" alt="Conference Footer" style="display: flex;justify-content: center;">
+            </div>
+        </div>
+    </div>
+    <br/>
+    </body>
+    </html>
+    """.format(
+            _data["name"],
+            _data["email_id"],
+            _data["password"],
+        )
+
+        email_from = from_email
+        email_to = to_email
+
+        email_message = MIMEMultipart()
+        email_message["From"] = email_from
+        email_message["To"] = email_to
+        email_message["Subject"] = subject
+
+        email_message.attach(MIMEText(html, "html"))
+        email_string = email_message.as_string()
+
+        with smtplib.SMTP("smtp-mail.outlook.com", 587) as server:
+            server.starttls()
+            server.login(email_from, smtp_password)
+            server.sendmail(email_from, email_to, email_string)
+
+        print("Email sent successfully")
+        return Response("Email sent successfully", status=200)
+    except Exception as e:
+        print("Error in sending email:", e)
+        return Response("Error in sending email", status=500)

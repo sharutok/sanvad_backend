@@ -8,6 +8,7 @@ from utils_app.views import (
     announcement,
     plant_department_values,
     wish_birthday,
+    new_user_creation_mail,
 )
 
 urlpatterns = [
@@ -17,6 +18,9 @@ urlpatterns = [
     path("add/announsment/", announcement, name="announcement"),
     path("list/dept-plant/", plant_department_values, name="plant-department-values"),
     path("birthday/wish/", wish_birthday, name="wish-birthday"),
+    path(
+        "new/user/creation/mail/", new_user_creation_mail, name="new-user-creation-mail"
+    ),
 ]
 
 # urlpatterns += staticfiles_urlpatterns()

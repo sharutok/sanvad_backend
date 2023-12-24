@@ -152,12 +152,10 @@ def create(request):
         for date in end_dates:
             data["conf_end_date"] = datetime.strptime(date, "%Y-%m-%d").date()
             serializers = ConferenceBookingSerializer(data=data)
-            print(data)
             if serializers.is_valid():
                 serializers.save()
                 mail_confirmation(serializers.data)
-            return Response({"mess": "Created", "status": 300})
-            # return Response({"mess": "Created", "status": 200})
+        return Response({"mess": "Created", "status": 200})
     except Exception as e:
         return Response({"mess": "Not", "status": 400, "err": e})
 
@@ -291,32 +289,32 @@ def mail_confirmation(data):
                 </div>
 
                 <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
-                    <strong>Agenda: </strong>
+                    <span>Agenda: </span>
                     <span>{}</span>
                 </div>
 
                 <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
-                    <strong>Location: </strong>
+                    <span>Location: </span>
                     <span>{}</span>
                 </div>
 
                 <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
-                    <strong>Start Date/Time: </strong>
+                    <span>Start Date/Time: </span>
                     <span>{}</span>
                 </div>
 
                 <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
-                    <strong>End Date/Time: </strong>
+                    <span>End Date/Time: </span>
                     <span>{}</span>
                 </div>
 
                 <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
-                    <strong>Booked By: </strong>
+                    <span>Booked By: </span>
                     <span>{}</span>
                 </div>
 
                 <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
-                    <strong>Department:</strong>
+                    <span>Department:</span>
                     <span>{}</span>
                 </div>
 
@@ -337,8 +335,8 @@ def mail_confirmation(data):
             _data["location"],
             _data["start_data_time"],
             _data["end_data_time"],
-            _data["dept"],
             _data["book_who"],
+            _data["dept"],
         )
 
         # Set up the email addresses and password. Please replace below with your email address and password

@@ -265,11 +265,16 @@ def data_by_id(request, id):
                                     match len(serializers.data["approval_flow"]):
                                         # ticket is with admin infra
                                         case 0:
+                                            assign_ticket_to_user = request.data[
+                                                "assign_ticket_to_user"
+                                            ]
+                                            assign_ticket_to_user_id = re.split(
+                                                "-", assign_ticket_to_user
+                                            )[0]
+
                                             val = res_body_for_infra_tkt_wf2(
                                                 request.data["approver_status"],
-                                                redis_get_string(
-                                                    "it_infra_issues_technical"
-                                                ),
+                                                assign_ticket_to_user_id,
                                             )
 
                                             serializers = TicketSytemSerializer(
@@ -526,7 +531,6 @@ def data_by_id(request, id):
                                         )
 
                                         obj_data["next_approver"] = val[1]
-
                                         # FILE UPLAOD LOGIC
                                         if serializers.is_valid():
                                             obj = serializers.save()
@@ -753,11 +757,23 @@ def ticket_components_view_access(woosee, request):
     components["close_radio_btn"] = (
         True if len(request["approval_flow"]) >= 3 else False
     )
+    print(
+        str(ticket_flow_user_for_systems("it_head")) == str(woosee)
+        and len(request["approval_flow"]) == 2,
+    )
     components["assign_ticket_comp"] = (
         True
         if (
-            str(ticket_flow_user_for_systems("it_head")) == str(woosee)
+            (
+                str(ticket_flow_user_for_systems("it_head")) == str(woosee)
+                and len(request["approval_flow"]) == 2
+            )
             or len(request["approval_flow"]) >= 3
+            or (
+                str(ticket_flow_user_for_infra("req1", "ticket_admin_infra"))
+                == str(woosee)
+                and len(request["approval_flow"]) == 1
+            )
         )
         else False
     )
@@ -782,8 +798,14 @@ def ticket_components_view_access(woosee, request):
         True
         if (
             str(
-                ticket_flow_user_for_systems("ticket_admin_system")
-                or ticket_flow_user_for_infra("req1", "ticket_admin_infra")
+                (
+                    ticket_flow_user_for_systems("ticket_admin_system")
+                    and len(request["approval_flow"]) == 1
+                )
+                or (
+                    ticket_flow_user_for_infra("req1", "ticket_admin_infra")
+                    and len(request["approval_flow"]) == 0
+                )
             )
             == str(woosee)
             or (
