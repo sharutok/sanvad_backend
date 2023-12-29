@@ -9,6 +9,7 @@ from utils_app.views import (
     plant_department_values,
     wish_birthday,
     new_user_creation_mail,
+    which_frame,
 )
 
 urlpatterns = [
@@ -21,6 +22,7 @@ urlpatterns = [
     path(
         "new/user/creation/mail/", new_user_creation_mail, name="new-user-creation-mail"
     ),
+    path("which/frame/", which_frame, name="which-frame"),
 ]
 
 # urlpatterns += staticfiles_urlpatterns()

@@ -27,6 +27,13 @@ def all_data(request):
     paginator = PageNumberPagination()
     search_query = request.GET["search"]
     woosee = "" if request.GET["woosee"] in security_det() else request.GET["woosee"]
+    print(request.GET["date"])
+    todays_date = (
+        ""
+        if request.GET["date"] == "false"
+        else datetime.now().date().strftime("%Y-%m-%d")
+    )
+    print(todays_date)
 
     def _plant(emp_no):
         data = user_details_from_emp_id(emp_no)
@@ -35,7 +42,6 @@ def all_data(request):
     plant = (
         _plant(request.GET["woosee"]) if request.GET["woosee"] in security_det() else ""
     )
-    print(plant)
 
     paginator.page_size = 10
     raw_sql_query = """select
@@ -53,8 +59,11 @@ def all_data(request):
     visitors_management vm
     left join user_management um on
 	vm.raised_by = um.emp_no
-    where vm.raised_by like '%{}%' and vm.delete_flag=false and UPPER(plant_name) ilike '%{}%' and (vm.reason_for_visit like '%{}%' or vm.raised_by like '%{}%' ) order by updated_at desc;""".format(
-        woosee, plant, search_query, search_query
+    where vm.raised_by like '%{}%' 
+    and vm.created_at::text LIKE '%{}%'
+    and vm.delete_flag=false and UPPER(plant_name) ilike '%{}%' 
+    and (vm.reason_for_visit like '%{}%' or vm.raised_by like '%{}%' ) order by updated_at desc;""".format(
+        woosee, todays_date, plant, search_query, search_query
     )
 
     with connection.cursor() as cursor:

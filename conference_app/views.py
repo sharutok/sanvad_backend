@@ -12,7 +12,7 @@ from rest_framework.decorators import api_view
 from django.shortcuts import render
 from conference_app.models import ConferenceBooking
 from conference_app.serializers import ConferenceBookingSerializer
-
+from ticket_app.views import user_details_from_emp_id
 from sanvad_app.serializers import userManagementSerializer
 from sanvad_app.models import UserManagement
 from rest_framework import status
@@ -22,6 +22,7 @@ from sanvad_project.settings import r
 from rest_framework.pagination import PageNumberPagination
 import os
 from email.message import EmailMessage
+from capex_app.views import execute_sql
 
 
 # GET ALL DATA.
@@ -30,12 +31,20 @@ def all_data(request):
     paginator = PageNumberPagination()
     search_query = request.GET["search"]
     woosee = request.GET["woosee"]
+
     todays_date = request.GET["date"]
     todays_date = (
         ""
         if request.GET["date"] == "false"
         else datetime.now().date().strftime("%Y-%m-%d")
     )
+    results = all_conference_rooms(woosee, "conference_rooms")
+
+    arr = []
+    for result in results:
+        arr.append(result.split("#")[0])
+    print(arr)
+
     raw_sql_query = """
                     select
                     	cb.*,
@@ -45,13 +54,14 @@ def all_data(request):
                     from
                     	conference_booking cb,user_management um
                     where
-                    1=1 and
-                    	cb.conf_by = um.emp_no and
-                        cb.delete_flag = false and                
-                    	 (conf_room LIKE '%{}%'
+                    1=1 
+                    and cb.conf_by = um.emp_no 
+                    and cb.delete_flag = false 
+                    and cb.conf_room in {}
+                    and (conf_room LIKE '%{}%'
                         OR conf_by LIKE '%{}%'
                         OR meeting_about LIKE '%{}%') AND conf_end_date::text LIKE '%{}%' order by cb.created_at desc ;""".format(
-        search_query, search_query, search_query, todays_date
+        tuple(arr), search_query, search_query, search_query, todays_date
     )
     with connection.cursor() as cursor:
         cursor.execute(raw_sql_query)
@@ -221,8 +231,14 @@ def conference_rooms_dynamic_values(request):
     match request.method:
         # GET ALL DATA
         case "GET":
-            data = r.lrange(key_name, 0, -1)
-            return Response(data)
+            try:
+                woosee = request.GET["woosee"]
+                result = all_conference_rooms(woosee, key_name)
+                return Response(result)
+
+            except Exception as e:
+                print(e)
+                return Response(False)
         # CREATE
         case "PUT":
             r.lpush(key_name, request.data["value"].upper())
@@ -317,7 +333,7 @@ def mail_confirmation(data):
                     <span>Department:</span>
                     <span>{}</span>
                 </div>
-
+    
             </div>
 <br>
             <img src="https://adorwelding.org/Adorhub_uploads/Footer.png" width="700" alt="Conference Footer" style="display: flex;justify-content: center;">
@@ -369,3 +385,20 @@ def user_info(emp_no):
     obj = UserManagement.objects.get(emp_no=emp_no)
     serializers = userManagementSerializer(obj)
     return serializers.data
+
+
+def all_conference_rooms(woosee, key_name):
+    plant_name = user_details_from_emp_id(woosee)["plant_name"]
+    val = execute_sql(
+        "select UPPER(split_part(plant_name,' ',1))plant_name from user_management um where emp_no ='{}'".format(
+            woosee
+        )
+    )
+    data = r.lrange(key_name, 0, -1)
+    if val[0]["plant_name"]:
+        _data = []
+        for room in data:
+            if room.split("#")[2] == val[0]["plant_name"]:
+                _data.append(room)
+        _data = _data if len(_data) else data
+        return _data

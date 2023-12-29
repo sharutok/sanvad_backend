@@ -11,7 +11,7 @@ from ticket_app.views import (
 
 urlpatterns = [
     path("all/", all_data, name="all-data"),
-    path("<uuid:id>", data_by_id, name="data-by-id"),
+    path("<uuid:id>/", data_by_id, name="data-by-id"),
     path("create/", create, name="create"),
     path(
         "tkt_type/",

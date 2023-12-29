@@ -1,3 +1,9 @@
+import smtplib
+from dotenv import load_dotenv
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import os
+
 from django.db.models import Q
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -6,19 +12,15 @@ from ticket_app.serializers import (
     TicketSytemSerializer,
     TicketFileUploadSerializer,
 )
-
 from sanvad_app.models import UserManagement
 from sanvad_app.serializers import userManagementSerializer
-
 from rest_framework import status
 import requests
 from rest_framework.pagination import PageNumberPagination
-
 from sanvad_project.settings import r
 import json
 import uuid
 from psycopg2.extras import Json
-
 from django.contrib import admin
 from datetime import datetime
 from django.db import connection
@@ -62,6 +64,12 @@ def all_data(request):
     raw_sql_query = """
         select
         ts.*,
+          case 
+        	when tkt_current_at='00547' and jsonb_array_length(approval_flow)=0 then 'MANAGER' 
+        	when tkt_current_at='00547' and jsonb_array_length(approval_flow)=2 then 'IT HEAD' 
+        	when tkt_current_at='14383' and jsonb_array_length(approval_flow)=1 then 'TICKET ADMIN' 
+        	else ''
+        end as ROLE,
         concat(um.first_name, ' ',
         um.last_name) tkt_current_at,
         concat(um2.first_name,' ',
@@ -133,7 +141,8 @@ def data_by_id(request, id):
                 + user_info_serializers.data["last_name"],
                 "Department": user_info_serializers.data["department"],
                 "Ticket No": form_serializers.data["ticket_no"],
-                "Ticket Date": date + " " + time,
+                # "Ticket Date": date + " " + time,
+                "Ticket Date": form_serializers.data["created_at"],
                 "Employee ID": user_info_serializers.data["emp_no"],
                 "Email ID": user_info_serializers.data["email_id"],
             }
@@ -370,7 +379,6 @@ def data_by_id(request, id):
                                                 request.data["approver_status"],
                                                 assign_ticket_to_user_id,
                                             )
-                                            print(val)
 
                                             serializers = TicketSytemSerializer(
                                                 obj,
@@ -423,9 +431,12 @@ def data_by_id(request, id):
                                     )
 
                                     if serializers.is_valid():
-                                        serializers.save()
+                                        instance = serializers.save()
                                         obj_data["next_approver"] = val[1]
                                         approval_flow_execute(obj_data)
+                                        send_mail_later(
+                                            obj_data=obj_data, instance=instance
+                                        )
                                     else:
                                         print(serializers.errors)
 
@@ -471,13 +482,11 @@ def data_by_id(request, id):
                                                         "queryset.errors",
                                                         queryset.errors,
                                                     )
+                                        obj_data["next_approver"] = val[0]
+                                        approval_flow_execute(obj_data)
+                                        send_mail_later(obj_data=obj_data, instance=obj)
                                     else:
                                         print("serializers.errors", serializers.errors)
-
-                                    obj_data["next_approver"] = val[0]
-                                    print(val)
-                                    print(obj_data)
-                                    approval_flow_execute(obj_data)
 
                                 # ticket is at it head
                                 case 2:
@@ -502,8 +511,11 @@ def data_by_id(request, id):
                                     obj_data["next_approver"] = val[0]
 
                                     if serializers.is_valid():
-                                        serializers.save()
-                                    approval_flow_execute(obj_data)
+                                        instance = serializers.save()
+                                        approval_flow_execute(obj_data)
+                                        send_mail_later(
+                                            obj_data=obj_data, instance=instance
+                                        )
 
                                     # ticket is with technical user
 
@@ -555,11 +567,15 @@ def data_by_id(request, id):
                                                             "queryset.errors",
                                                             queryset.errors,
                                                         )
+                                            approval_flow_execute(obj_data)
+                                            send_mail_later(
+                                                obj_data=obj_data,
+                                                instance=obj,
+                                            )
                                         else:
                                             print(
                                                 "serializers.errors", serializers.errors
                                             )
-                                        approval_flow_execute(obj_data)
 
                     return Response({"status_code": status.HTTP_200_OK})
                 except Exception as e:
@@ -619,13 +635,12 @@ def create(request):
                 "requester_emp_no": request.data["requester_emp_no"],
             }
         )
-        print(Ticketserializers)
         if Ticketserializers.is_valid():
             obj = Ticketserializers.save()
+            send_mail_early(instance=obj)
             # UPLOAD FILE LOGIC
             n = str(request.data["file_count"])
             if n >= "0":
-                print(n)
                 for i in range(0, int(n)):
                     file = "file{}".format(i + 1)
                     data = {
@@ -636,6 +651,7 @@ def create(request):
                     queryset = TicketFileUploadSerializer(data=data)
                     if queryset.is_valid():
                         queryset.save()
+                        send_mail_early(obj)
             return Response(
                 {"mess": "Created Successfully", "status": status.HTTP_200_OK}
             )
@@ -735,7 +751,6 @@ def ticket_flow_user_for_infra(req, type):
                 for val in value:
                     if val["type"] == type:
                         emp = val["user"]
-    print(emp)
     return emp
 
 
@@ -757,10 +772,7 @@ def ticket_components_view_access(woosee, request):
     components["close_radio_btn"] = (
         True if len(request["approval_flow"]) >= 3 else False
     )
-    print(
-        str(ticket_flow_user_for_systems("it_head")) == str(woosee)
-        and len(request["approval_flow"]) == 2,
-    )
+
     components["assign_ticket_comp"] = (
         True
         if (
@@ -794,20 +806,29 @@ def ticket_components_view_access(woosee, request):
         True if str(request["tkt_current_at"]) == str(woosee) else False
     )
 
+    print(
+        ticket_flow_user_for_systems("ticket_admin_system")
+        and len(request["approval_flow"]) == 1
+    )
+    print(
+        ticket_flow_user_for_infra("req1", "ticket_admin_infra")
+        and len(request["approval_flow"]) == 0
+    )
+    print(
+        (len(request["approval_flow"])) >= 3
+        and str(request["tkt_current_at"]) == str(woosee)
+    )
     components["upload_documents"] = (
         True
         if (
-            str(
-                (
-                    ticket_flow_user_for_systems("ticket_admin_system")
-                    and len(request["approval_flow"]) == 1
-                )
-                or (
-                    ticket_flow_user_for_infra("req1", "ticket_admin_infra")
-                    and len(request["approval_flow"]) == 0
-                )
+            (
+                ticket_flow_user_for_systems("ticket_admin_system") == str(woosee)
+                and len(request["approval_flow"]) == 1
             )
-            == str(woosee)
+            or (
+                ticket_flow_user_for_infra("req1", "ticket_admin_infra") == str(woosee)
+                and len(request["approval_flow"]) == 0
+            )
             or (
                 True
                 if (
@@ -839,3 +860,243 @@ def redis_get_string(key):
     except Exception as e:
         print("error", e)
         return Response({"error": e})
+
+
+def send_mail_later(obj_data, instance):
+    try:
+        mail_status = ["APPROVED", "REJECTED", "CLOSED"]
+        _data = {
+            "current_approver_status": mail_status[int(obj_data["status"])],
+            "raised_by_mail_id": user_details_from_emp_id(instance.requester_emp_no)[
+                "email_id"
+            ],
+            "next_approver_mail_id": ""
+            if not instance.tkt_current_at
+            else user_details_from_emp_id(instance.tkt_current_at)["email_id"],
+            "current_approved_by": user_details_from_emp_id(obj_data["emp_id"])[
+                "first_name"
+            ]
+            + " "
+            + user_details_from_emp_id(obj_data["emp_id"])["last_name"],
+            "current_approver_comment": obj_data["comments"],
+            "ticket_raised_by": user_details_from_emp_id(instance.requester_emp_no)[
+                "first_name"
+            ]
+            + " "
+            + user_details_from_emp_id(instance.requester_emp_no)["last_name"],
+            "ticket_no": instance.ticket_no,
+            "title": instance.tkt_title,
+            "requirement_type": instance.req_type,
+        }
+        load_dotenv()
+        subject = "Adorhub - Ticket Notification"
+        from_email = os.getenv("SENDER_EMAIL")
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = os.getenv("SMTP_PORT")
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+
+        html = """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro' rel='stylesheet' type='text/css'>
+                    <meta charset="UTF-8">
+                    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
+                <body style="padding: 1rem; font-family: 'Source Sans Pro', sans-serif;">
+                    <div style="display: flex;">
+                        <div style="width: 600px; margin-top: 1rem; display: grid; grid-template-columns: auto; gap: 2rem; width:fit-content;border-radius: 10px;padding:2rem;">
+                            <img src="https://adorwelding.org/Adorhub_uploads/Ticket.png" width="800" alt="Conference Header" style="display: flex;justify-content: center;">
+                            <div style="color: #555259; padding: 0 2rem;">
+                                <div >
+                                    <span style="font-size: 2rem; font-weight: 700;">Ticket Details</span>
+                                    <hr>
+                                </div>
+                
+                                <span style="font-size: 1.5rem;  text-align: center;">Status :</span>
+                                <span style="font-weight: 700; font-size: 1.5rem;text-align: center;">{}</span>
+                                <br>
+                                <br>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <strong>Ticket raised by: </strong>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <strong>Ticket No: </strong>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <strong>Title: </strong>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <strong>Requirement Type: </strong>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                                    <strong>Approved By: </strong>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                                    <strong>Approved Status: </strong>
+                                    <span>{}</span>
+                                </div>
+                            </div>
+                            <br>
+                        <div style="display: flex;justify-content: center;">
+                                <img src="https://adorwelding.org/Adorhub_uploads/Footer.png" width="700" alt="Conference Footer" style="display: flex;justify-content: center;">
+                            </div>
+                        </div>
+                    </div>
+                <br/>
+                </body>
+                </html>
+                """.format(
+            _data["current_approver_status"],
+            _data["ticket_raised_by"],
+            _data["ticket_no"],
+            _data["title"],
+            _data["requirement_type"],
+            _data["current_approved_by"],
+            _data["current_approver_comment"],
+        )
+        # Set up the email addresses and password. Please replace below with your email address and password
+        email_from = from_email
+        password = smtp_password
+        email_to = [
+            _data["raised_by_mail_id"],
+            _data["next_approver_mail_id"],
+        ]
+
+        # Create a MIMEMultipart class, and set up the From, To, Subject fields
+        email_message = MIMEMultipart()
+        email_message["From"] = email_from
+        email_message["To"] = ", ".join(email_to)
+        email_message["Subject"] = subject
+
+        email_message.attach(MIMEText(html, "html"))
+        email_string = email_message.as_string()
+
+        with smtplib.SMTP("smtp-mail.outlook.com", 587) as server:
+            server.starttls()
+            server.login(email_from, password)
+            server.sendmail(email_from, email_to, email_string)
+
+        print("Email sent successfully")
+        return Response("Email sent successfully", status=200)
+    except Exception as e:
+        print("Error in sending email:", e)
+        return Response("Error in sending email", status=500)
+
+
+def send_mail_early(instance):
+    _data = {
+        "raised_by_mail_id": user_details_from_emp_id(instance.requester_emp_no)[
+            "email_id"
+        ],
+        "next_approver_mail_id": user_details_from_emp_id(instance.tkt_current_at)[
+            "email_id"
+        ],
+        "ticket_raised_by": user_details_from_emp_id(instance.requester_emp_no)[
+            "first_name"
+        ]
+        + " "
+        + user_details_from_emp_id(instance.requester_emp_no)["last_name"],
+        "ticket_no": instance.ticket_no,
+        "title": instance.tkt_title,
+        "requirement_type": instance.req_type,
+    }
+
+    try:
+        load_dotenv()
+        subject = "Adorhub - Ticket Notification"
+        from_email = os.getenv("SENDER_EMAIL")
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = os.getenv("SMTP_PORT")
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+
+        html = """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro' rel='stylesheet' type='text/css'>
+                    <meta charset="UTF-8">
+                    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
+                <body style="padding: 1rem; font-family: 'Source Sans Pro', sans-serif;">
+                    <div style="display: flex;">
+                        <div style="width: 600px; margin-top: 1rem; display: grid; grid-template-columns: auto; gap: 2rem; width:fit-content;border-radius: 10px;padding:2rem;">
+                            <img src="https://adorwelding.org/Adorhub_uploads/Ticket.png" width="800" alt="Conference Header" style="display: flex;justify-content: center;">
+                            <div style="color: #555259; padding: 0 2rem;">
+                                <div >
+                                    <span style="font-size: 2rem; font-weight: 700;">Ticket Details</span>
+                                    <hr>
+                                </div>
+                
+                                <span style="font-size: 1.5rem;  text-align: center;">Status :</span>
+                                <span style="font-weight: 700; font-size: 1.5rem;text-align: center;">RAISED</span>
+                                <br>
+                                <br>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <strong>Ticket raised by: </strong>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <strong>Ticket No: </strong>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <strong>Title: </strong>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <strong>Requirement Type: </strong>
+                                    <span>{}</span>
+                                </div>
+                            </div>
+                            <br>
+                        <div style="display: flex;justify-content: center;">
+                                <img src="https://adorwelding.org/Adorhub_uploads/Footer.png" width="700" alt="Conference Footer" style="display: flex;justify-content: center;">
+                            </div>
+                        </div>
+                    </div>
+                <br/>
+                </body>
+                </html>
+        """.format(
+            _data["ticket_raised_by"],
+            _data["ticket_no"],
+            _data["title"],
+            _data["requirement_type"],
+        )
+        # Set up the email addresses and password. Please replace below with your email address and password
+        email_from = from_email
+        password = smtp_password
+        email_to = [
+            _data["raised_by_mail_id"],
+            _data["next_approver_mail_id"],
+        ]
+
+        # Create a MIMEMultipart class, and set up the From, To, Subject fields
+        email_message = MIMEMultipart()
+        email_message["From"] = email_from
+        email_message["To"] = ", ".join(email_to)
+        email_message["Subject"] = subject
+
+        email_message.attach(MIMEText(html, "html"))
+        email_string = email_message.as_string()
+
+        with smtplib.SMTP("smtp-mail.outlook.com", 587) as server:
+            server.starttls()
+            server.login(email_from, password)
+            server.sendmail(email_from, email_to, email_string)
+
+        print("Email sent successfully")
+        return Response("Email sent successfully", status=200)
+    except Exception as e:
+        print("Error in sending email:", e)
+        return Response("Error in sending email", status=500)

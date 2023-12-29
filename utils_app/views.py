@@ -33,6 +33,7 @@ from visitors_app.models import VisitorsManagement
 from capex_app.models import Capex, Capex1
 from sanvad_app.models import EmployeeMappings
 import random
+from ticket_app.views import user_details_from_emp_id
 
 # Create your views here.
 
@@ -447,12 +448,12 @@ def send_email(
 
 
 imageLink = [
-    "https://images.unsplash.com/photo-1583875762487-5f8f7c718d14?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8YmlydGhkYXl8ZW58MHx8MHx8fDA%3D",
-    "https://images.unsplash.com/photo-1464349153735-7db50ed83c84?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8YmlydGhkYXl8ZW58MHx8MHx8fDA%3D",
-    "https://images.unsplash.com/photo-1531956531700-dc0ee0f1f9a5?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fGJpcnRoZGF5fGVufDB8fDB8fHww",
-    "https://plus.unsplash.com/premium_photo-1663839412026-51a44cfadfb8?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MzN8fGJpcnRoZGF5fGVufDB8fDB8fHww",
-    "https://plus.unsplash.com/premium_photo-1677221924546-d963753f007d?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mzd8fGJpcnRoZGF5fGVufDB8fDB8fHww",
-    "https://plus.unsplash.com/premium_photo-1663839411935-07fdc76a8bed?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NDF8fGJpcnRoZGF5fGVufDB8fDB8fHww",
+    "https://adorwelding.org/Adorhub_uploads/b0.png",
+    "https://adorwelding.org/Adorhub_uploads/b1.png",
+    "https://adorwelding.org/Adorhub_uploads/b2.png",
+    "https://adorwelding.org/Adorhub_uploads/b3.png",
+    "https://adorwelding.org/Adorhub_uploads/b4.png",
+    "https://adorwelding.org/Adorhub_uploads/b5.png",
 ]
 
 
@@ -553,3 +554,18 @@ def new_user_creation_mail(request):
     except Exception as e:
         print("Error in sending email:", e)
         return Response("Error in sending email", status=500)
+
+
+@api_view(["GET"])
+def which_frame(request):
+    try:
+        print(user_details_from_emp_id(request.GET["woosee"])["email_id"])
+        woosee = (
+            False
+            if "flashorthodontics"
+            in user_details_from_emp_id(request.GET["woosee"])["email_id"]
+            else True
+        )
+        return Response({"status": 200, "response": woosee})
+    except Exception as e:
+        return Response(400)
