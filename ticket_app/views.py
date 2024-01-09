@@ -8,11 +8,11 @@ from django.db.models import Q
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from ticket_app.models import TicketSystemModel, TicketFileUploadModel
+from sanvad_app.models import UserManagement
 from ticket_app.serializers import (
     TicketSytemSerializer,
     TicketFileUploadSerializer,
 )
-from sanvad_app.models import UserManagement
 from sanvad_app.serializers import userManagementSerializer
 from rest_framework import status
 import requests
@@ -74,13 +74,22 @@ def all_data(request):
         um.last_name) tkt_current_at,
         concat(um2.first_name,' ',
         um2.last_name) requester_emp_name,
-        to_char(ts.created_at::timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD-MM-YYYY hh:mi AM') created_at
+        case
+		when tkt_status = 'CLOSED' then replace(approval_flow[jsonb_array_length(approval_flow)-1]['time']::text,'"',' ')
+		end as closed_date,
+		case
+		when tkt_status = 'CLOSED' then replace(approval_flow[jsonb_array_length(approval_flow)-1]['user_name']::text,'"',' ')
+		end as closed_by,
+        to_char(ts.created_at::timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD-MM-YYYY hh:mi AM') created_at,
+        coalesce(COUNT(tfu.ticket_ref_id),0) as total_file_uploads
         from
         	tkt_system ts
         left join user_management um on
         	ts.tkt_current_at = um.emp_no
         left join user_management um2 on
         	ts.requester_emp_no = um2.emp_no 
+        left join  tkt_file_uploads tfu on
+			ts.id = tfu.ticket_ref_id
         	where 
         	((tkt_current_at like '%{}%' 
         	or requester_emp_no like '%{}%') and tkt_type like '%{}%')
@@ -90,11 +99,95 @@ def all_data(request):
             or req_type like '%{}%'
             )
             and ts.delete_flag = false
-        	order by ts.created_at desc;
+            group by
+		    ts.id,
+		    ts.ticket_no,
+		    ts.tkt_title,
+		    ts.tkt_type ,
+		    ts.req_type ,
+		    ts.tkt_description ,
+		    um.first_name,
+		    um.last_name,
+		    um2.first_name,
+		    um2.last_name
+        	order by ts.created_at desc
+         ;
     """.format(
         _emp_no,
         _emp_no,
         _tkt_type,
+        _search_query,
+        _search_query,
+        _search_query,
+    )
+    with connection.cursor() as cursor:
+        cursor.execute(raw_sql_query)
+        results = cursor.fetchall()
+        rows = [
+            dict(zip([col[0] for col in cursor.description], row)) for row in results
+        ]
+    result_page = paginator.paginate_queryset(rows, request)
+    return paginator.get_paginated_response(result_page)
+
+
+@api_view(["GET"])
+def view_all_tickets(request):
+    paginator = PageNumberPagination()
+    _search_query = request.GET["search"]
+
+    # check if the user is admin or just user
+
+    paginator.page_size = 10
+
+    raw_sql_query = """
+        select
+        ts.*,
+          case 
+        	when tkt_current_at='00547' and jsonb_array_length(approval_flow)=0 then 'MANAGER' 
+        	when tkt_current_at='00547' and jsonb_array_length(approval_flow)=2 then 'IT HEAD' 
+        	when tkt_current_at='14383' and jsonb_array_length(approval_flow)=1 then 'TICKET ADMIN' 
+        	else ''
+        end as ROLE,
+        concat(um.first_name, ' ',
+        um.last_name) tkt_current_at,
+        concat(um2.first_name,' ',
+        um2.last_name) requester_emp_name,
+        to_char(ts.created_at::timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD-MM-YYYY hh:mi AM') created_at,
+        coalesce(COUNT(tfu.ticket_ref_id),0) as total_file_uploads,
+         case
+		when tkt_status = 'CLOSED' then replace(approval_flow[jsonb_array_length(approval_flow)-1]['time']::text,'"',' ')
+		end as closed_date,
+		case
+		when tkt_status = 'CLOSED' then replace(approval_flow[jsonb_array_length(approval_flow)-1]['user_name']::text,'"',' ')
+		end as closed_by
+        from
+        	tkt_system ts
+        left join user_management um on
+        	ts.tkt_current_at = um.emp_no
+        left join user_management um2 on
+        	ts.requester_emp_no = um2.emp_no 
+        left join  tkt_file_uploads tfu on
+			ts.id = tfu.ticket_ref_id
+        	where 
+        	( ticket_no::text like '%{}%'
+            or tkt_type like '%{}%'
+            or req_type like '%{}%'
+            )
+            and ts.delete_flag = false
+            group by
+		    ts.id,
+		    ts.ticket_no,
+		    ts.tkt_title,
+		    ts.tkt_type ,
+		    ts.req_type ,
+		    ts.tkt_description ,
+		    um.first_name,
+		    um.last_name,
+		    um2.first_name,
+		    um2.last_name
+        	order by ts.created_at desc
+         ;
+    """.format(
         _search_query,
         _search_query,
         _search_query,
@@ -116,7 +209,7 @@ def data_by_id(request, id):
             obj = TicketSystemModel.objects.get(id=id)
             form_serializers = TicketSytemSerializer(obj)
             view_access = ticket_components_view_access(
-                request.GET["woosee"], form_serializers.data
+                request.GET["woosee"], form_serializers.data, request.GET["qreuecs"]
             )
 
             user_info = UserManagement.objects.get(
@@ -757,7 +850,7 @@ def ticket_flow_user_for_infra(req, type):
 ticket_wf_status = {0: "INPROGRESS", 1: "APPROVED", 2: "REJECTED", 3: "CLOSED"}
 
 
-def ticket_components_view_access(woosee, request):
+def ticket_components_view_access(woosee, request, qreuecs):
     components = {
         "assign_ticket_comp": False,
         "status_close": False,
@@ -768,87 +861,77 @@ def ticket_components_view_access(woosee, request):
         "severity_component": False,
         "close_radio_btn": False,
     }
-
-    components["close_radio_btn"] = (
-        True if len(request["approval_flow"]) >= 3 else False
-    )
-
-    components["assign_ticket_comp"] = (
-        True
-        if (
-            (
-                str(ticket_flow_user_for_systems("it_head")) == str(woosee)
-                and len(request["approval_flow"]) == 2
-            )
-            or len(request["approval_flow"]) >= 3
-            or (
-                str(ticket_flow_user_for_infra("req1", "ticket_admin_infra"))
-                == str(woosee)
-                and len(request["approval_flow"]) == 1
-            )
+    if not qreuecs:
+        components["close_radio_btn"] = (
+            True if len(request["approval_flow"]) >= 3 else False
         )
-        else False
-    )
 
-    def submit_btn():
-        if str(request["tkt_current_at"]) != str(woosee):
-            return False
-        else:
-            return True
-
-    components["submit_btn"] = submit_btn()
-
-    components["approval_status"] = (
-        True if str(request["tkt_current_at"]) == str(woosee) else False
-    )
-
-    components["comments_box"] = (
-        True if str(request["tkt_current_at"]) == str(woosee) else False
-    )
-
-    print(
-        ticket_flow_user_for_systems("ticket_admin_system")
-        and len(request["approval_flow"]) == 1
-    )
-    print(
-        ticket_flow_user_for_infra("req1", "ticket_admin_infra")
-        and len(request["approval_flow"]) == 0
-    )
-    print(
-        (len(request["approval_flow"])) >= 3
-        and str(request["tkt_current_at"]) == str(woosee)
-    )
-    components["upload_documents"] = (
-        True
-        if (
-            (
-                ticket_flow_user_for_systems("ticket_admin_system") == str(woosee)
-                and len(request["approval_flow"]) == 1
-            )
-            or (
-                ticket_flow_user_for_infra("req1", "ticket_admin_infra") == str(woosee)
-                and len(request["approval_flow"]) == 0
-            )
-            or (
-                True
-                if (
-                    (len(request["approval_flow"])) >= 3
-                    and str(request["tkt_current_at"]) == str(woosee)
+        components["assign_ticket_comp"] = (
+            True
+            if (
+                (
+                    str(ticket_flow_user_for_systems("it_head")) == str(woosee)
+                    and len(request["approval_flow"]) == 2
                 )
-                else False
+                or len(request["approval_flow"]) >= 3
+                or (
+                    str(ticket_flow_user_for_infra("req1", "ticket_admin_infra"))
+                    == str(woosee)
+                    and len(request["approval_flow"]) == 1
+                )
             )
+            else False
         )
-        else False
-    )
-    components["severity_component"] = (
-        True
-        if str(
-            ticket_flow_user_for_systems("ticket_admin_system")
-            or ticket_flow_user_for_infra("req1", "ticket_admin_infra")
+
+        def submit_btn():
+            if str(request["tkt_current_at"]) != str(woosee):
+                return False
+            else:
+                return True
+
+        components["submit_btn"] = submit_btn()
+
+        components["approval_status"] = (
+            True if str(request["tkt_current_at"]) == str(woosee) else False
         )
-        == str(woosee)
-        else False
-    )
+
+        components["comments_box"] = (
+            True if str(request["tkt_current_at"]) == str(woosee) else False
+        )
+
+        components["upload_documents"] = (
+            True
+            if (
+                (
+                    ticket_flow_user_for_systems("ticket_admin_system") == str(woosee)
+                    and len(request["approval_flow"]) == 1
+                )
+                or (
+                    ticket_flow_user_for_infra("req1", "ticket_admin_infra")
+                    == str(woosee)
+                    and len(request["approval_flow"]) == 0
+                )
+                or (
+                    True
+                    if (
+                        (len(request["approval_flow"])) >= 3
+                        and str(request["tkt_current_at"]) == str(woosee)
+                    )
+                    else False
+                )
+            )
+            else False
+        )
+        components["severity_component"] = (
+            True
+            if str(
+                ticket_flow_user_for_systems("ticket_admin_system")
+                or ticket_flow_user_for_infra("req1", "ticket_admin_infra")
+            )
+            == str(woosee)
+            else False
+        )
+
     return components
 
 
@@ -887,6 +970,7 @@ def send_mail_later(obj_data, instance):
             "ticket_no": instance.ticket_no,
             "title": instance.tkt_title,
             "requirement_type": instance.req_type,
+            "ticket_link": instance.id,
         }
         load_dotenv()
         subject = "Adorhub - Ticket Notification"
@@ -895,6 +979,7 @@ def send_mail_later(obj_data, instance):
         smtp_port = os.getenv("SMTP_PORT")
         smtp_username = os.getenv("SMTP_USERNAME")
         smtp_password = os.getenv("SMTP_PASSWORD")
+        tkt_link_prefix = os.getenv("TICKET_LINK_PREFIX")
 
         html = """
                 <!DOCTYPE html>
@@ -943,6 +1028,10 @@ def send_mail_later(obj_data, instance):
                                     <strong>Approved Status: </strong>
                                     <span>{}</span>
                                 </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                                    <strong>Link: </strong>
+                                    <span>{}</span>
+                                </div>
                             </div>
                             <br>
                         <div style="display: flex;justify-content: center;">
@@ -961,10 +1050,12 @@ def send_mail_later(obj_data, instance):
             _data["requirement_type"],
             _data["current_approved_by"],
             _data["current_approver_comment"],
+            _data["ticket_link"],
         )
         # Set up the email addresses and password. Please replace below with your email address and password
         email_from = from_email
         password = smtp_password
+        # email_to = ["sharankudtarkar@adorians.com"]
         email_to = [
             _data["raised_by_mail_id"],
             _data["next_approver_mail_id"],
@@ -1007,6 +1098,7 @@ def send_mail_early(instance):
         "ticket_no": instance.ticket_no,
         "title": instance.tkt_title,
         "requirement_type": instance.req_type,
+        "ticket_link": instance.id,
     }
 
     try:
@@ -1017,6 +1109,7 @@ def send_mail_early(instance):
         smtp_port = os.getenv("SMTP_PORT")
         smtp_username = os.getenv("SMTP_USERNAME")
         smtp_password = os.getenv("SMTP_PASSWORD")
+        tkt_link_prefix = os.getenv("TICKET_LINK_PREFIX")
 
         html = """
                 <!DOCTYPE html>
@@ -1057,6 +1150,10 @@ def send_mail_early(instance):
                             <strong>Requirement Type: </strong>
                                     <span>{}</span>
                                 </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <strong>Link: </strong>
+                                    <span>{}</span>
+                                </div>
                             </div>
                             <br>
                         <div style="display: flex;justify-content: center;">
@@ -1072,11 +1169,13 @@ def send_mail_early(instance):
             _data["ticket_no"],
             _data["title"],
             _data["requirement_type"],
+            _data["ticket_link"],
         )
         # Set up the email addresses and password. Please replace below with your email address and password
         email_from = from_email
         password = smtp_password
-        email_to = [
+        # email_to = ["sharankudtarkar@adorians.com"]
+        [
             _data["raised_by_mail_id"],
             _data["next_approver_mail_id"],
         ]

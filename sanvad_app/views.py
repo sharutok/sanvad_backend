@@ -277,3 +277,16 @@ def user_permission_dynamic_values(request):
             r.lrem(key_name, 0, request.data["value"])
             data = r.lrange(key_name, 0, -1)
             return Response(data)
+
+
+@api_view(["GET"])
+def get_list_of_managers_based_on_department(request):
+    department = request.GET["department"]
+    query = """select concat(first_name,' ',last_name) name from user_management um where um.user_status =true"""
+    with connection.cursor() as cursor:
+        cursor.execute(query)
+        results = cursor.fetchall()
+        rows = [
+            dict(zip([col[0] for col in cursor.description], row)) for row in results
+        ]
+    return Response(rows)

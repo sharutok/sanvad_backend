@@ -7,6 +7,7 @@ from sanvad_app.views import (
     birthday_list,
     user_permission_dynamic_values,
     reset_password,
+    get_list_of_managers_based_on_department,
 )
 
 urlpatterns = [
@@ -19,4 +20,9 @@ urlpatterns = [
         "user/permission/list/", user_permission_dynamic_values, name="user-permission"
     ),
     path("reset/password", reset_password, name="reset-password"),
+    path(
+        "list/manager/",
+        get_list_of_managers_based_on_department,
+        name="get-list-of-managers-based-on-department",
+    ),
 ]

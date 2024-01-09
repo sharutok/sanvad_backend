@@ -148,10 +148,10 @@ def create(request):
         data["disp_conf_end_date"] = datetime.strptime(
             str(data["conf_end_date"]), "%Y-%m-%d"
         ).date()
-        # Calculate the difference between the two dates
+        # CALCULATE THE DIFFERENCE BETWEEN THE TWO DATES
         delta = date1 - date2
 
-        # Get the number of days as an integer
+        # GET THE NUMBER OF DAYS AS AN INTEGER
         num_days = delta.days
         end_dates = []
         if num_days >= 0:
@@ -164,7 +164,7 @@ def create(request):
             serializers = ConferenceBookingSerializer(data=data)
             if serializers.is_valid():
                 serializers.save()
-                mail_confirmation(serializers.data)
+        # mail_confirmation(serializers.data)
         return Response({"mess": "Created", "status": 200})
     except Exception as e:
         return Response({"mess": "Not", "status": 400, "err": e})
