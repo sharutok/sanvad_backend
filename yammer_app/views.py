@@ -7,11 +7,14 @@ from rest_framework import status
 import requests
 from sanvad_project.settings import r
 import json
-
+from dotenv import load_dotenv
 from googleapiclient.discovery import build
 from oauth2client.service_account import ServiceAccountCredentials
 import os
 import io
+
+import requests
+from requests.auth import HTTPBasicAuth
 
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
@@ -89,3 +92,49 @@ def download_file(file_id, file_name):
                 print("File downloaded successfully")
     except Exception as e:
         print("Error:", e)
+
+
+# DONE 👍
+def download_sharpoint_file():
+    # Replace these with your actual values
+    load_dotenv()
+    client_id = os.getenv("CLIENT_ID")
+    client_secret = os.getenv("CLIENT_SECRET")
+    tenant_id = os.getenv("TENANT_ID")
+
+    # Get an access token using client credentials flow
+    token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+    token_data = {
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "scope": "https://graph.microsoft.com/.default",
+    }
+    token_response = requests.post(token_url, data=token_data).json()
+    access_token = token_response["access_token"]
+
+    # Make a request to get file information
+    file_url = f"https://graph.microsoft.com/v1.0/sites/adorians.sharepoint.com,a5150817-1f02-4c6f-9bbb-c65e5ededcb6,3bafd510-ca90-4a38-a7f5-d72ed5c325a0/drive/root:/Apps/Viva%20Engage/Ador_Pune_Final_10 MB.mp4"
+    file_response = requests.get(
+        file_url, headers={"Authorization": "Bearer " + access_token}
+    ).json()
+
+    # Get the download URL
+    download_url = file_response["@microsoft.graph.downloadUrl"]
+
+    # Download the file
+    response = requests.get(
+        download_url, headers={"Authorization": "Bearer " + access_token}
+    )
+
+    media_root = settings.MEDIA_ROOT
+    yammer_folder = os.path.join(media_root, "yammer")
+
+    # Create the "yammer" folder if it doesn't exist
+    if not os.path.exists(yammer_folder):
+        os.makedirs(yammer_folder)
+
+    full_path = os.path.join(yammer_folder, "Ador_Pune_Final_10 MB.mp4")
+    with open(full_path, "wb") as f:
+        f.write(response.content)
+        print("File downloaded successfully")

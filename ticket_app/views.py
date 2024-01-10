@@ -1030,7 +1030,7 @@ def send_mail_later(obj_data, instance):
                                 </div>
                                 <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
                                     <strong>Link: </strong>
-                                    <span>{}</span>
+                                    <a href="https://ador.net.in/login">ADORHUB</a>
                                 </div>
                             </div>
                             <br>
@@ -1050,7 +1050,6 @@ def send_mail_later(obj_data, instance):
             _data["requirement_type"],
             _data["current_approved_by"],
             _data["current_approver_comment"],
-            _data["ticket_link"],
         )
         # Set up the email addresses and password. Please replace below with your email address and password
         email_from = from_email
@@ -1152,7 +1151,7 @@ def send_mail_early(instance):
                                 </div>
                                 <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
                             <strong>Link: </strong>
-                                    <span>{}</span>
+                                    <a href="https://ador.net.in/login">ADORHUB</a>
                                 </div>
                             </div>
                             <br>
@@ -1169,7 +1168,6 @@ def send_mail_early(instance):
             _data["ticket_no"],
             _data["title"],
             _data["requirement_type"],
-            _data["ticket_link"],
         )
         # Set up the email addresses and password. Please replace below with your email address and password
         email_from = from_email
