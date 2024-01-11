@@ -94,47 +94,101 @@ def download_file(file_id, file_name):
         print("Error:", e)
 
 
+# RUN YAMMER FROM NODE
+@api_view(["GET"])
+def get_yammer_data_drop_to_redis(request):
+    files_to_be_downloaded = []
+    try:
+        print("Yammer started")
+        response = requests.get("http://27.107.7.11:8888/sanvad/back/api/v1/yammer")
+        r.set("yammer_data", json.dumps(response.json()))
+        yammer_data = response.json()
+        for data in yammer_data:
+            files_to_be_downloaded.append(data["image"][0]["name"]) if len(
+                data["image"]
+            ) else None
+        for file in files_to_be_downloaded:
+            download_sharpoint_file(file)
+        return Response(response.json())
+
+    except Exception as e:
+        print("error in getting data", e)
+        return Response("error")
+
+
+# RUN BIRTHDAY FROM NODE
+@api_view(["GET"])
+def get_birthday_name(request):
+    try:
+        response = requests.get("http://27.107.7.11:8888/sanvad/back/api/v1/birthday")
+        r.set("todays_birthday", json.dumps(response.json()))
+        return Response(response.json())
+
+    except Exception as e:
+        print("error in collecting birthday names")
+        return Response(False)
+
+
+# RIN WEATHER FRON NODE
+@api_view(["GET"])
+def get_weather_data(request):
+    try:
+        response = requests.get(
+            "http://27.107.7.11:8888/sanvad/back/api/v1/run/weather"
+        )
+        r.set("weather_temp", json.dumps(response.json()))
+        return Response(response.json())
+
+    except Exception as e:
+        print("error in collecting birthday names")
+        return Response(False)
+
+
 # DONE 👍
-def download_sharpoint_file():
+def download_sharpoint_file(file):
     # Replace these with your actual values
-    load_dotenv()
-    client_id = os.getenv("CLIENT_ID")
-    client_secret = os.getenv("CLIENT_SECRET")
-    tenant_id = os.getenv("TENANT_ID")
+    try:
+        print("started downloading file")
+        load_dotenv()
+        client_id = os.getenv("CLIENT_ID")
+        client_secret = os.getenv("CLIENT_SECRET")
+        tenant_id = os.getenv("TENANT_ID")
 
-    # Get an access token using client credentials flow
-    token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
-    token_data = {
-        "grant_type": "client_credentials",
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "scope": "https://graph.microsoft.com/.default",
-    }
-    token_response = requests.post(token_url, data=token_data).json()
-    access_token = token_response["access_token"]
+        # Get an access token using client credentials flow
+        token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+        token_data = {
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scope": "https://graph.microsoft.com/.default",
+        }
+        token_response = requests.post(token_url, data=token_data).json()
+        access_token = token_response["access_token"]
 
-    # Make a request to get file information
-    file_url = f"https://graph.microsoft.com/v1.0/sites/adorians.sharepoint.com,a5150817-1f02-4c6f-9bbb-c65e5ededcb6,3bafd510-ca90-4a38-a7f5-d72ed5c325a0/drive/root:/Apps/Viva%20Engage/Ador_Pune_Final_10 MB.mp4"
-    file_response = requests.get(
-        file_url, headers={"Authorization": "Bearer " + access_token}
-    ).json()
+        # Make a request to get file information
+        file_url = f"https://graph.microsoft.com/v1.0/sites/adorians.sharepoint.com,a5150817-1f02-4c6f-9bbb-c65e5ededcb6,3bafd510-ca90-4a38-a7f5-d72ed5c325a0/drive/root:/Apps/Viva%20Engage/{file}"
+        file_response = requests.get(
+            file_url, headers={"Authorization": "Bearer " + access_token}
+        ).json()
 
-    # Get the download URL
-    download_url = file_response["@microsoft.graph.downloadUrl"]
+        # Get the download URL
+        download_url = file_response["@microsoft.graph.downloadUrl"]
 
-    # Download the file
-    response = requests.get(
-        download_url, headers={"Authorization": "Bearer " + access_token}
-    )
+        # Download the file
+        response = requests.get(
+            download_url, headers={"Authorization": "Bearer " + access_token}
+        )
 
-    media_root = settings.MEDIA_ROOT
-    yammer_folder = os.path.join(media_root, "yammer")
+        media_root = settings.MEDIA_ROOT
+        yammer_folder = os.path.join(media_root, "yammer")
 
-    # Create the "yammer" folder if it doesn't exist
-    if not os.path.exists(yammer_folder):
-        os.makedirs(yammer_folder)
+        # Create the "yammer" folder if it doesn't exist
+        if not os.path.exists(yammer_folder):
+            os.makedirs(yammer_folder)
 
-    full_path = os.path.join(yammer_folder, "Ador_Pune_Final_10 MB.mp4")
-    with open(full_path, "wb") as f:
-        f.write(response.content)
-        print("File downloaded successfully")
+        full_path = os.path.join(yammer_folder, file)
+        with open(full_path, "wb") as f:
+            f.write(response.content)
+            print("File downloaded successfully")
+    except Exception as e:
+        print(e)

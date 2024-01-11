@@ -307,6 +307,7 @@ def export_keys():
 
 
 # @api_view(["GET"])
+# EXPORT and IMPORT redis data from one redis to another
 def import_keys():
     try:
         input_file = "exported_keys.txt"
