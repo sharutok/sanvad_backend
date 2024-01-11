@@ -97,18 +97,10 @@ def download_file(file_id, file_name):
 # RUN YAMMER FROM NODE
 @api_view(["GET"])
 def get_yammer_data_drop_to_redis(request):
-    files_to_be_downloaded = []
     try:
         print("Yammer started")
         response = requests.get("http://27.107.7.11:8888/sanvad/back/api/v1/yammer")
         r.set("yammer_data", json.dumps(response.json()))
-        yammer_data = response.json()
-        for data in yammer_data:
-            files_to_be_downloaded.append(data["image"][0]["name"]) if len(
-                data["image"]
-            ) else None
-        for file in files_to_be_downloaded:
-            download_sharpoint_file(file)
         return Response(response.json())
 
     except Exception as e:
@@ -146,7 +138,6 @@ def get_weather_data(request):
 
 # DONE 👍
 def download_sharpoint_file(file):
-    # Replace these with your actual values
     try:
         print("started downloading file")
         load_dotenv()
@@ -192,3 +183,19 @@ def download_sharpoint_file(file):
             print("File downloaded successfully")
     except Exception as e:
         print(e)
+
+
+@api_view(["GET"])
+def get_images_from_yammer_data(request):
+    try:
+        files_to_be_downloaded = []
+        yammer_data = json.loads(r.get("yammer_data"))
+        for data in yammer_data:
+            files_to_be_downloaded.append(data["image"][0]["name"]) if len(
+                data["image"]
+            ) else None
+        for file in files_to_be_downloaded:
+            download_sharpoint_file(file)
+        return Response("downloaded {}".format(len(files_to_be_downloaded)))
+    except Exception as e:
+        return Response(e)

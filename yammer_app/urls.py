@@ -5,6 +5,7 @@ from yammer_app.views import (
     getFileListFromGDrive,
     get_yammer_data_drop_to_redis,
     get_birthday_name,
+    get_images_from_yammer_data,
 )
 
 urlpatterns = [
@@ -16,5 +17,10 @@ urlpatterns = [
         "run/yammer/get/",
         get_yammer_data_drop_to_redis,
         name="get-yammer-data-drop-to-redis",
+    ),
+    path(
+        "run/yammer-images/get/",
+        get_images_from_yammer_data,
+        name="get-images-from-yammer-data",
     ),
 ]
