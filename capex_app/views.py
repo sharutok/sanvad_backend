@@ -110,8 +110,18 @@ def get_all_budget_data(request):
                             	t1.budget_id = cem.id
                                 and cem.plant like '%{}%' and cem.dept like '%{}%'
                                 and cem.delete_flag=false
-                                and (cem.budget_no like '%{}%' or cem.purpose_code like '%{}%' or cem.purpose_description like '%{}%' or category like '%{}%');""".format(
-        plant_name, department, search_query, search_query, search_query, search_query
+                                and (cem.budget_no like '%{}%' 
+                                or cem.purpose_code like '%{}%' 
+                                or cem.purpose_description like '%{}%' 
+                                or category like '%{}%' 
+                                or asset_description like '%{}%');""".format(
+        plant_name,
+        department,
+        search_query,
+        search_query,
+        search_query,
+        search_query,
+        search_query,
     )
     with connection.cursor() as cursor:
         cursor.execute(raw_sql_query)

@@ -158,13 +158,20 @@ def birthday_list(request):
 @api_view(["POST"])
 def reset_password(request):
     try:
-        if request.data["user_email"] and request.data["emp_no"]:
-            user_email = request.data["user_email"]
-            emp_no = request.data["emp_no"]
-            collection = hash_password()
+        emp_no = request.data["emp_no"]
+        obj = UserManagement.objects.get(emp_no=emp_no)
+        serializers = userManagementSerializer(obj)
+        # check for
+        user_status = serializers.data["user_status"]
+        user_email = serializers.data["email_id"]
+        first_name = serializers.data["first_name"][0:3].lower()
+        dob = datetime.strptime(serializers.data["dob"], "%Y-%m-%d")
+        DD = dob.strftime("%d")
+        MM = dob.strftime("%m")
+        if user_email and emp_no and obj:
+            collection = hash_password(first_name + DD + MM)
             password = collection[1]
             actual_password = collection[0]
-            obj = UserManagement.objects.get(emp_no=emp_no)
             serializers = userManagementSerializer(
                 obj, data={"password": password.decode("utf-8")}
             )
@@ -172,15 +179,14 @@ def reset_password(request):
                 serializers.save()
 
             load_dotenv()
+            subject = "ADOR HUB - Oops! Forgot Your Password? No Worries, We Gave It a Makeover"
+            from_email = os.getenv("SENDER_EMAIL")
             smtp_server = os.getenv("SMTP_SERVER")
             smtp_port = os.getenv("SMTP_PORT")
             smtp_username = os.getenv("SMTP_USERNAME")
             smtp_password = os.getenv("SMTP_PASSWORD")
-            sender_email = os.getenv("SENDER_EMAIL")
-            receiver_email = user_email
-            subject = "ADOR HUB Password Reset"
 
-            html_message = """
+            html = """
                         <!DOCTYPE html>
                             <html lang="en">
                             <head>
@@ -190,66 +196,50 @@ def reset_password(request):
                                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                             </head>
                             <body style="padding: 1rem;font-family: 'Source Sans Pro', sans-serif;">
-                                <span >Hi <span > {} !</span>,</span>
+                                <span >Hi <span > {} </span>,</span>
                                 <div style="margin-top: 1rem; display: grid; grid-template-columns: auto;gap: 5px; ">
                                     <span>Your Password for ADOR HUB Application has been reset successfully.</span>
                                     <p>Password : <strong> {} </strong></p>
-                                        <p>Use the link below to Log in.</p>
-                                        <p>
-                                            <a href="www.google.com">ADOR HUB</a>
-                                        </p>
+                                        <p>Use the link to Log in <a href="https://ador.net.in">ADOR HUB</a></p>
+                                        
                                     </div>
-                                    <br />
                                     <p>Thanks & Regards.. </p>
                                     <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/Ador_Welding_logo.png" alt="Ador Logo" width="100"
                                     height="50">
                                     <br />
                                     <br />
-                                    <h4 style="font-weight: bolder;align-items: center;font-style: italic;"> -: This is a system-generated :- </h4>
                             </body>
                             </html>
             """.format(
                 obj, actual_password
             )
+            email_from = from_email
+            password = smtp_password
+            email_to = user_email
             # Create the email message
-            msg = MIMEMultipart()
-            msg["From"] = sender_email
-            msg["To"] = receiver_email
-            msg["Subject"] = subject
-            msg.attach(
-                MIMEText(
-                    html_message,
-                    "html",
-                )
-            )
-            # Establish a connection to the SMTP server
+            email_message = MIMEMultipart()
+            email_message["From"] = email_from
+            email_message["To"] = email_to
+            email_message["Subject"] = subject
 
-            server = smtplib.SMTP(smtp_server, smtp_port)
-            server.login(smtp_username, smtp_password)
-            server.sendmail(sender_email, receiver_email, msg.as_string())
-            print("Email sent successfully.")
-            server.quit()
+            email_message.attach(MIMEText(html, "html"))
+            email_string = email_message.as_string()
+
+            with smtplib.SMTP("smtp-mail.outlook.com", 587) as server:
+                server.starttls()
+                server.login(email_from, password)
+                server.sendmail(email_from, email_to, email_string)
+
+            print("Email sent successfully")
             return Response({"status_code": status.HTTP_200_OK})
+
     except Exception as e:
         print(e)
         return Response({"status_code": status.HTTP_400_BAD_REQUEST})
 
 
-def random_password():
-    special_characters = ["!", "@", "#", "$", "%"]
-    lowercase_letters = list(string.ascii_lowercase)
-
-    v1 = random.choice(special_characters)
-    v2 = random.choice(lowercase_letters)
-    v3 = random.choice(lowercase_letters)
-    v4 = random.choice(lowercase_letters)
-    v5 = random.choice(special_characters)
-
-    return v1 + v2 + v3 + v4 + v5
-
-
-def hash_password():
-    ran = random_password()
+def hash_password(ran):
+    print(ran)
     unsalted_password = str(ran).encode("utf-8")
     salted_password = bcrypt.hashpw(unsalted_password, bcrypt.gensalt(rounds=10))
     print(ran, unsalted_password, salted_password)

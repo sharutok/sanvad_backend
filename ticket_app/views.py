@@ -97,6 +97,7 @@ def all_data(request):
         	( ticket_no::text like '%{}%'
             or tkt_type like '%{}%'
             or req_type like '%{}%'
+            or tkt_title like '%{}%'
             )
             and ts.delete_flag = false
             group by
@@ -116,6 +117,7 @@ def all_data(request):
         _emp_no,
         _emp_no,
         _tkt_type,
+        _search_query,
         _search_query,
         _search_query,
         _search_query,
@@ -744,7 +746,6 @@ def create(request):
                     queryset = TicketFileUploadSerializer(data=data)
                     if queryset.is_valid():
                         queryset.save()
-                        send_mail_early(obj)
             return Response(
                 {"mess": "Created Successfully", "status": status.HTTP_200_OK}
             )
@@ -1173,7 +1174,7 @@ def send_mail_early(instance):
         email_from = from_email
         password = smtp_password
         # email_to = ["sharankudtarkar@adorians.com"]
-        [
+        email_to = [
             _data["raised_by_mail_id"],
             _data["next_approver_mail_id"],
         ]
