@@ -1,3 +1,4 @@
+import pytz
 from django.db.models import Q
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -19,6 +20,13 @@ import base64, binascii
 import os
 from django.core.files.base import ContentFile
 from ticket_app.views import user_details_from_emp_id
+from conference_app.views import user_info
+from django.core.mail import send_mail
+from django.shortcuts import render
+import smtplib
+from dotenv import load_dotenv
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 
 # GET ALL DATA.
@@ -170,7 +178,9 @@ def create(request):
     serializers = VisitorsManagementSerializer(data=request.data)
     if serializers.is_valid():
         serializers.save()
+        mail_confirmation(serializers.data)
         return Response({"mess": "Created", "status": status.HTTP_200_OK})
+
     else:
         print(serializers.errors)
     return Response(
@@ -289,3 +299,145 @@ def security_det():
     ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     key_name = "security_admin"
     return r.lrange(key_name, 0, -1)
+
+
+def mail_confirmation(data):
+    try:
+        user_details = user_info(data["raised_by"])
+        _data = {
+            "visitor_company": data["v_company"],
+            "reason_for_vist": data["reason_for_visit"],
+            "raised_by": str(user_details["first_name"]).title()
+            + " "
+            + str(user_details["last_name"]).title(),
+            "department": user_details["department"],
+            "start_date_time": datetime.strptime(
+                data["start_date_time"], "%Y-%m-%dT%H:%M:%SZ"
+            )
+            .replace(tzinfo=pytz.timezone("UTC"))
+            .astimezone(pytz.timezone("Asia/Kolkata"))
+            .strftime("%d-%m-%Y %I:%M %p"),
+            "end_date_time": datetime.strptime(
+                data["end_date_time"], "%Y-%m-%dT%H:%M:%SZ"
+            )
+            .replace(tzinfo=pytz.timezone("UTC"))
+            .astimezone(pytz.timezone("Asia/Kolkata"))
+            .strftime("%d-%m-%Y %I:%M %p"),
+            "main_visitors_name": data["visitors"][0]["v_name"],
+            "visitor_count": len(data["visitors"]),
+        }
+        print(data)
+        load_dotenv()
+        subject = "Adorhub - Visitor Pass Details"
+        from_email = os.getenv("SENDER_EMAIL")
+        to_email = user_details["email_id"]
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = os.getenv("SMTP_PORT")
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+
+        html = """
+                   <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro' rel='stylesheet' type='text/css'>
+                    <meta charset="UTF-8">
+                    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
+                <body style="padding: 1rem; font-family: 'Source Sans Pro', sans-serif;">
+
+                    <span style="display: inline-block;">
+                        Hi 
+                        <span style="display: inline-block;">{}</span>,
+                    </span>
+                    <div style="display: flex;">
+                        <div style="width: 600px; margin-top: 1rem; display: grid; grid-template-columns: auto; gap: 2rem; width:fit-content;border-radius: 10px;padding:2rem">
+                        <br>
+                            <img src="https://adorwelding.org/Adorhub_uploads/mail_vistor_header.png" width="800" alt="Conference Header" style="display: flex;justify-content: center;">
+                            <br>
+                            <div style="color: #555259; padding: 0 2rem;">
+                                <div style="margin-bottom: 2rem;">
+                                <br>
+                                    <span style="font-size: 2rem; font-weight: 700;">Visitor Pass Details</span>
+                                    <hr>
+                                    <br>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                                    <span>Raised By: </span>
+                                    <span>{}</span>
+                                </div>
+
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                                    <span>Department: </span>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                                    <span>Visitor Company: </span>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                                    <span>Main Visitor's Name: </span>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                                    <span>Reason For Vist: </span>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                                    <span>Start Date-time: </span>
+                                    <span>{}</span>
+                                </div>
+
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                                    <span>End Date-Time: </span>
+                                    <span>{}</span>
+                                </div>
+                                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                                    <span>Total No of Visitors: </span>
+                                    <span>{}</span>
+                                </div>
+                            </div>
+                        <br>
+                            <img src="https://adorwelding.org/Adorhub_uploads/Footer.png" width="700" alt="Conference Footer" style="display: flex;justify-content: center;">
+
+                        </div>
+                    </div>
+                <br/>
+                </body>
+                </html> 
+                        """.format(
+            _data["raised_by"],
+            _data["raised_by"],
+            _data["department"],
+            _data["visitor_company"],
+            _data["main_visitors_name"],
+            _data["reason_for_vist"],
+            _data["start_date_time"],
+            _data["end_date_time"],
+            _data["visitor_count"],
+        )
+
+        # Set up the email addresses and password. Please replace below with your email address and password
+        email_from = from_email
+        password = smtp_password
+        email_to = to_email
+
+        # Create a MIMEMultipart class, and set up the From, To, Subject fields
+        email_message = MIMEMultipart()
+        email_message["From"] = email_from
+        email_message["To"] = email_to
+        email_message["Subject"] = "Adorhub - Visitor's Pass"
+
+        email_message.attach(MIMEText(html, "html"))
+        email_string = email_message.as_string()
+
+        with smtplib.SMTP("smtp-mail.outlook.com", 587) as server:
+            server.starttls()
+            server.login(email_from, password)
+            server.sendmail(email_from, email_to, email_string)
+        print("Email sent successfully")
+        return Response("Email sent successfully", status=200)
+    except Exception as e:
+        print("Error in sending email:", e)
+        return Response("Error in sending email", status=500)

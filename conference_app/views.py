@@ -164,7 +164,7 @@ def create(request):
             serializers = ConferenceBookingSerializer(data=data)
             if serializers.is_valid():
                 serializers.save()
-        # mail_confirmation(serializers.data)
+        mail_confirmation(serializers.data)
         return Response({"mess": "Created", "status": 200})
     except Exception as e:
         return Response({"mess": "Not", "status": 400, "err": e})
