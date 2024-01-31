@@ -68,10 +68,16 @@ def all_data(request):
     left join user_management um on
 	vm.raised_by = um.emp_no
     where vm.raised_by like '%{}%' 
-    and vm.created_at::text LIKE '%{}%'
+    and vm.start_date_time <= '{}T23:59:59'::timestamp AND vm.end_date_time >= '{}T00:00:00'::timestamp
     and vm.delete_flag=false and UPPER(plant_name) ilike '%{}%' 
-    and (vm.reason_for_visit like '%{}%' or vm.raised_by like '%{}%' ) order by updated_at desc;""".format(
-        woosee, todays_date, plant, search_query, search_query
+    and (vm.reason_for_visit like '%{}%' or vm.raised_by like '%{}%' or vm.v_company like '%{}%' ) order by updated_at desc;""".format(
+        woosee,
+        todays_date,
+        todays_date,
+        plant,
+        search_query,
+        search_query,
+        search_query,
     )
 
     with connection.cursor() as cursor:
