@@ -52,36 +52,45 @@ def all_data(request):
     )
 
     paginator.page_size = 10
-    raw_sql_query = """select
-	vm.*,
-    upper(um.plant_name) plant_name,
-	concat(um.first_name,
-	' ',
-	um.last_name)name,
-	um.department,
-	to_char(vm.start_date_time ::timestamp ,
-	'DD-MM-YYYY hh:mi AM') mod_start_date_time ,
-	to_char(vm.end_date_time ::timestamp ,
-	'DD-MM-YYYY hh:mi AM') mod_end_date_time
-    from
+    base_sql_query = """SELECT
+    vm.*,
+    UPPER(um.plant_name) AS plant_name,
+    CONCAT(um.first_name, ' ', um.last_name) AS name,
+    um.department,
+    TO_CHAR(vm.start_date_time::TIMESTAMP, 'DD-MM-YYYY hh:mi AM') AS mod_start_date_time,
+    TO_CHAR(vm.end_date_time::TIMESTAMP, 'DD-MM-YYYY hh:mi AM') AS mod_end_date_time
+FROM
     visitors_management vm
-    left join user_management um on
-	vm.raised_by = um.emp_no
-    where vm.raised_by like '%{}%' 
-    and vm.start_date_time <= '{}T23:59:59'::timestamp AND vm.end_date_time >= '{}T00:00:00'::timestamp
-    and vm.delete_flag=false and UPPER(plant_name) ilike '%{}%' 
-    and (vm.reason_for_visit like '%{}%' or vm.raised_by like '%{}%' or vm.v_company like '%{}%' ) order by updated_at desc;""".format(
+LEFT JOIN user_management um ON
+    vm.raised_by = um.emp_no
+WHERE
+    vm.raised_by LIKE '%{}%'
+    AND vm.delete_flag = false
+    AND UPPER(plant_name) ILIKE '%{}%'
+    AND (vm.reason_for_visit LIKE '%{}%' OR vm.raised_by LIKE '%{}%' OR vm.v_company LIKE '%{}%')
+""".format(
         woosee,
-        todays_date,
-        todays_date,
         plant,
         search_query,
         search_query,
         search_query,
     )
 
+    # Add time conditions based on the toggle
+    if todays_date:
+        time_conditions = "AND vm.start_date_time <= '{}'::TIMESTAMP AND vm.end_date_time >= '{}'::TIMESTAMP".format(
+            todays_date + "T23:59:59",
+            todays_date + "T00:00:00",
+        )
+        final_sql_query = base_sql_query + time_conditions
+    else:
+        final_sql_query = base_sql_query
+
+    # Add the ORDER BY clause
+    final_sql_query += " ORDER BY updated_at DESC;"
+
     with connection.cursor() as cursor:
-        cursor.execute(raw_sql_query)
+        cursor.execute(final_sql_query)
         results = cursor.fetchall()
         rows = [
             dict(zip([col[0] for col in cursor.description], row)) for row in results
