@@ -25,7 +25,6 @@ class Capex1Serializer(serializers.ModelSerializer):
     def get_mod_file_name(self, object):
         return str(object.user_file).split("/")[-1]
 
-
 class UploadBudgetSerializer(serializers.ModelSerializer):
     class Meta:
         model = UploadBudget

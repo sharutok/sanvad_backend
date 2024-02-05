@@ -24,10 +24,10 @@ class Capex(models.Model):
     category = models.CharField(max_length=200, null=True)
     asset_description = models.CharField(max_length=200, null=True)
     details = models.CharField(max_length=200, null=True)
-    rate = models.IntegerField(null=True)
-    qty = models.IntegerField(null=True)
+    rate = models.FloatField(null=True)
+    qty = models.FloatField(null=True)
     uom = models.CharField(max_length=200, null=True)
-    final_budget = models.IntegerField(null=True)
+    final_budget = models.FloatField(null=True)
     remarks = models.CharField(max_length=200, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -42,7 +42,7 @@ class Capex(models.Model):
 
 
 class Capex1(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
+    id = models.UUIDField(primary_key=True,default=uuid.uuid4, editable=True)
     budget_id = models.UUIDField(editable=True)
     nature_of_requirement = models.CharField(max_length=150, null=True)
     purpose = models.CharField(max_length=150, null=True)
@@ -50,7 +50,7 @@ class Capex1(models.Model):
     return_on_investment = models.CharField(max_length=150, null=True)
     budget_type = models.CharField(max_length=150, null=True)
     requisition_date = models.DateField(null=True)
-    total_cost = models.IntegerField(null=True)
+    total_cost = models.FloatField(null=True)
     site_delivery_date = models.DateField(null=True)
     capex_status = models.CharField(max_length=150, null=True)
     installation_date = models.DateField(null=True)

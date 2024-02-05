@@ -141,15 +141,22 @@ def get_all_capex_data(request):
     woosee = request.GET["woosee"]
     raw_sql_query = """
                             select
+                            cdm.id,
 	                        cem.budget_no ,
-                        	cem.line_no ,
+                        	cdm.nature_of_requirement ,
+                            cdm.total_cost,
                         	cem.purpose_code ,
-                        	cdm.requisition_date ,
+                            to_char(cdm.requisition_date::timestamp, 'DD-MM-YYYY') requisition_date,
                         	cdm.payback_period ,
                         	cdm.return_on_investment ,
+                            um1.department,
                         	cdm.budget_type,
                         	cdm.budget_id ,
                         	cdm.id capex_id,
+                            ROW_NUMBER () OVER (
+                                ORDER BY 
+                                cdm.id
+                            ) capex_no,
                             to_char(cdm.created_at::timestamp, 'DD-MM-YYYY') created_at,
                             concat(um.first_name,' ',um.last_name) capex_current_at,
                             concat(um1.first_name,' ',um1.last_name) capex_raised_by,
