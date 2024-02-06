@@ -481,10 +481,10 @@ def capex_components_view_access(woosee, request):
     components["approval_status"] = (
         True if woosee != request["capex_raised_by"] else False
     )
-    components["submit_btn"] = True if woosee != request["capex_raised_by"] else False
-    components["comments_box"] = True if woosee != request["capex_raised_by"] else False
+    components["submit_btn"] = True if woosee == request["capex_current_at"] else False
+    components["comments_box"] = True if woosee == request["capex_current_at"] else False
     components["approval_status"] = (
-        True if woosee != request["capex_raised_by"] else False
+        True if woosee == request["capex_current_at"] else False
     )
     components["update_btn"] = (
         True if request["capex_current_at"] == request["capex_raised_by"] else False
@@ -539,7 +539,7 @@ capex_wf_status = {
     1: "APPROVED",
     2: "REJECTED",
     3: "CLOSED",
-    4: "ASK FOR JUSTIFICATION",
+    4: "ASKED FOR JUSTIFICATION",
 }
 
 
