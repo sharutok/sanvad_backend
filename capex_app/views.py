@@ -8,9 +8,13 @@ from capex_app.serializers import (
     Capex1Serializer,
     UploadBudgetSerializer,
 )
+import smtplib
 from rest_framework import status
 import pandas as pd
 import requests
+from dotenv import load_dotenv
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from sanvad_project.settings import r
 import os
 import json
@@ -548,3 +552,137 @@ def get_capex_admin():
     key_name = "capex_admin"
     data = r.lrange(key_name, 0, -1)
     return data
+
+'''
+def mail_confirmation(data):
+    try:
+        user_details = user_info(data["conf_by"])
+
+        _data = {
+            "book_who": str(user_details["first_name"]).title()
+            + " "
+            + str(user_details["last_name"]).title(),
+            "meeting_about": str(data["meeting_about"]).title(),
+            "location": data["conf_room"],
+            "start_data_time": data["conf_start_date"] + " " + data["conf_start_time"],
+            "end_data_time": data["conf_end_date"] + " " + data["conf_end_time"],
+            "dept": user_details["department"],
+        }
+
+        load_dotenv()
+        subject = "Adorhub - Conference Booked"
+        from_email = os.getenv("SENDER_EMAIL")
+        to_email = user_details["email_id"]
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = os.getenv("SMTP_PORT")
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+
+        html = """
+   <!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro' rel='stylesheet' type='text/css'>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="padding: 1rem; font-family: 'Source Sans Pro', sans-serif;">
+
+    <span style="display: inline-block;">
+        Hi 
+        <span style="display: inline-block;">{}</span>,
+    </span>
+
+    <div style="display: flex;">
+        <div style="width: 600px; margin-top: 1rem; display: grid; grid-template-columns: auto; gap: 2rem; width:fit-content;border-radius: 10px;padding:2rem">
+        <br>
+            <img src="https://adorwelding.org/Adorhub_uploads/Capex.png" width="800" alt="Conference Header" style="display: flex;justify-content: center;">
+            <br>
+            <div style="color: #555259; padding: 0 2rem;">
+                <div style="margin-bottom: 2rem;">
+                <br>
+                    <span style="font-size: 2rem; font-weight: 700;">Conference Details</span>
+                    <hr>
+                    <br>
+                </div>
+
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                    <span>Agenda: </span>
+                    <span>{}</span>
+                </div>
+
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                    <span>Location: </span>
+                    <span>{}</span>
+                </div>
+
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                    <span>Start Date/Time: </span>
+                    <span>{}</span>
+                </div>
+
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                    <span>End Date/Time: </span>
+                    <span>{}</span>
+                </div>
+
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                    <span>Booked By: </span>
+                    <span>{}</span>
+                </div>
+
+                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                    <span>Department:</span>
+                    <span>{}</span>
+                </div>
+    
+            </div>
+<br>
+            <img src="https://adorwelding.org/Adorhub_uploads/Footer.png" width="700" alt="Conference Footer" style="display: flex;justify-content: center;">
+
+        </div>
+    </div>
+<br/>
+</body>
+</html>
+
+
+""".format(
+            _data["book_who"],
+            _data["meeting_about"],
+            _data["location"],
+            _data["start_data_time"],
+            _data["end_data_time"],
+            _data["book_who"],
+            _data["dept"],
+        )
+
+        # Set up the email addresses and password. Please replace below with your email address and password
+        email_from = from_email
+        password = smtp_password
+        email_to = to_email
+
+        # Create a MIMEMultipart class, and set up the From, To, Subject fields
+        email_message = MIMEMultipart()
+        email_message["From"] = email_from
+        email_message["To"] = email_to
+        email_message["Subject"] = "Adorhub - Conference Booking Confirmation"
+
+        email_message.attach(MIMEText(html, "html"))
+        email_string = email_message.as_string()
+
+        with smtplib.SMTP("smtp-mail.outlook.com", 587) as server:
+            server.starttls()
+            server.login(email_from, password)
+            server.sendmail(email_from, email_to, email_string)
+
+        print("Email sent successfully")
+        return Response("Email sent successfully", status=200)
+    except Exception as e:
+        print("Error in sending email:", e)
+        return Response("Error in sending email", status=500)
+
+
+
+'''
