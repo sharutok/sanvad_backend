@@ -543,7 +543,7 @@ capex_wf_status = {
     1: "APPROVED",
     2: "REJECTED",
     3: "CLOSED",
-    4: "ASKED FOR JUSTIFICATION",
+    4: "ASK FOR JUSTIFICATION",
 }
 
 
