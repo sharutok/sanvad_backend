@@ -24,6 +24,7 @@ from datetime import datetime
 from psycopg2.extras import Json
 from sanvad_app.models import UserManagement
 from sanvad_app.serializers import userManagementSerializer
+from django.http import HttpResponse
 
 
 # READ EXCEL DATA AND PUSH
@@ -271,7 +272,6 @@ def get_by_capex_id(request, id):
                         "status_code": status.HTTP_400_BAD_REQUEST,
                     }
                 )
-
         case "PUT":
             req = Capex1.objects.get(pk=id)
             serializers = Capex1Serializer(req)
@@ -302,15 +302,18 @@ def get_by_capex_id(request, id):
             def check_condition_for_corporate(approver_status):
                 # approved
                 if approver_status == "0":
-                    raised_by = serializers.data["capex_raised_by"]
-                    approved_by = request.data["user_no"]
-                    get_wf = execute_sql(user_flow_for_corporate.format(raised_by))
-                    row = []
-                    for data in get_wf:
-                        for key, value in data.items():
-                            row.append(value.split("#")[1])
-                    capex_current_at = row[row.index(str(approved_by)) + 1]
-                    return [capex_current_at, capex_wf_status[0]]
+                    if serializers.data["capex_current_at"]=='15604':
+                        return [None, capex_wf_status[3]]
+                    else:    
+                        raised_by = serializers.data["capex_raised_by"]
+                        approved_by = request.data["user_no"]
+                        get_wf = execute_sql(user_flow_for_corporate.format(raised_by))
+                        row = []
+                        for data in get_wf:
+                            for key, value in data.items():
+                                row.append(value.split("#")[1])
+                        capex_current_at = row[row.index(str(approved_by)) + 1]
+                        return [capex_current_at, capex_wf_status[0]]
 
                 # rejected
                 if approver_status == "1":
@@ -366,71 +369,95 @@ def get_by_capex_id(request, id):
                     return [None, capex_wf_status[3]]
 
             match serializers.data["flow_type"]:
+                #### FOR PLANT
                 case "for_plant":
-                    if len(serializers.data["approval_flow"]):
-                        value = check_condition_for_plant(obj_data["status"])
-                        print(value)
-                        next_approver = value[0]
-                        obj_data["next_approver"] = value[0]
-                        put_execute_sql(
-                            sql,
-                            obj_data,
-                            next_approver,
-                            value[1],
-                            request.data["capex_id"],
-                        )
-
-                    # flow has not yet started
-                    else:
-                        value = check_condition_for_plant(obj_data["status"])
-                        print(value)
-                        next_approver = value[0]
-                        obj_data["next_approver"] = value[0]
-                        print(value)
-                        put_execute_sql(
-                            sql,
-                            obj_data,
-                            next_approver,
-                            value[1],
-                            request.data["capex_id"],
-                        )
-
+                    value = check_condition_for_plant(obj_data["status"])
+                    next_approver = value[0]
+                    obj_data["next_approver"] = value[0]
+                    put_execute_sql(
+                        sql,
+                        obj_data,
+                        next_approver,
+                        value[1],
+                        request.data["capex_id"],
+                    )
+                    
+                #### FOR CORPORATE
                 case "for_corporate":
-                    # d1 = execute_sql(
-                    #     for_corporate.format(serializers.data["capex_current_at"])
-                    # )
-                    # flow has started
-                    if len(serializers.data["approval_flow"]):
-                        value = check_condition_for_corporate(obj_data["status"])
-                        next_approver = value[0]
-                        obj_data["next_approver"] = value[0]
-                        print(value)
-                        put_execute_sql(
-                            sql,
-                            obj_data,
-                            next_approver,
-                            value[1],
-                            request.data["capex_id"],
-                        )
+                    value = check_condition_for_corporate(obj_data["status"])
+                    next_approver = value[0]
+                    obj_data["next_approver"] = value[0]
+                    put_execute_sql(
+                        sql,
+                        obj_data,
+                        next_approver,
+                        value[1],
+                        request.data["capex_id"],
+                    )
+                    approve_mail_ready_data(serializers,value,obj_data)
+            return Response({"data": serializers.data, "status_code": status.HTTP_200_OK})
 
-                    # flow has not yet started
-                    else:
-                        value = check_condition_for_corporate(obj_data["status"])
-                        next_approver = value[0]
-                        obj_data["next_approver"] = value[0]
-                        print(value)
-                        put_execute_sql(
-                            sql,
-                            obj_data,
-                            next_approver,
-                            value[1],
-                            request.data["capex_id"],
-                        )
 
-            return Response(
-                {"data": serializers.data, "status_code": status.HTTP_200_OK}
-            )
 
+
+
+def create_mail_ready_data(serializers,capex_current_at):    
+    user_info=user_details_from_emp_id(serializers.data["capex_raised_by"])
+    user_name="{} {}".format(user_info["first_name"].capitalize(), user_info["last_name"].capitalize())
+    user_department=user_info['department']
+    user_email_id=user_info['email_id']
+
+    next_approver=user_details_from_emp_id(capex_current_at)
+    next_approver_email_id=next_approver['email_id']
+    next_approver_user_name="{} {}".format(next_approver["first_name"].capitalize(), next_approver["last_name"].capitalize())
+    
+    data={
+    'capex_status':"Raised",
+    'assignees_comment':'Please Take Action',
+    'nature_of_requirement':serializers.data["nature_of_requirement"],
+    'raised_by':user_name,
+    'department':user_department,
+    'capex_raised_date':serializers.data["created_at"],
+    'total_cost':serializers.data["total_cost"],
+    'user_email_id':user_email_id,
+    'next_approver_emp_id':capex_current_at,
+    'next_approver_email_id':next_approver_email_id,
+    'next_approver_user_name':next_approver_user_name,
+    'capex_id':'',
+    'budget_id':'',
+    'assignees_comment':'',
+    'approved_by':'',
+        }
+    mail_confirmation(data)
+
+
+def approve_mail_ready_data(serializers,value,obj_data):
+    user_info=user_details_from_emp_id(serializers.data["capex_raised_by"])
+    user_name="{} {}".format(user_info["first_name"].capitalize(), user_info["last_name"].capitalize())
+    user_department=user_info['department']
+    user_email_id=user_info['email_id']
+
+    next_approver=user_details_from_emp_id(value[0])
+    next_approver_email_id=next_approver['email_id']
+    next_approver_user_name="{} {}".format(next_approver["first_name"].capitalize(), next_approver["last_name"].capitalize())
+
+    data={
+    'capex_status':value[1],
+    'assignees_comment':obj_data['comments'],
+    'approved_by':obj_data["user_name"],
+    'nature_of_requirement':serializers.data["nature_of_requirement"],
+    'raised_by':user_name,
+    'department':user_department,
+    'capex_raised_date':serializers.data["created_at"],
+    'total_cost':serializers.data["total_cost"],
+    'user_email_id':user_email_id,
+    'next_approver_emp_id':value[0],
+    'next_approver_email_id':next_approver_email_id,
+    'next_approver_user_name':next_approver_user_name,
+    'capex_id':serializers.data["id"],
+    'budget_id':serializers.data["budget_id"]
+    }
+    mail_confirmation(data)
 
 @api_view(["POST"])
 def create_new_capex(request):
@@ -450,7 +477,9 @@ def create_new_capex(request):
 
         if serializers.is_valid():
             serializers.save()
+            create_mail_ready_data(serializers,capex_current_at=whose_ur_manager)
             return Response({"mess": "created", "status": 200})
+        
         else:
             print(serializers.errors)
             return Response({"error": serializers.errors, "status": 400})
@@ -472,6 +501,7 @@ def execute_sql(sql):
 def put_execute_sql(sql, obj_data, capex_current_at, capex_status, id_value):
     with connection.cursor() as cursor:
         cursor.execute(sql, [Json(obj_data), capex_current_at, capex_status, id_value])
+    return True
 
 
 def capex_components_view_access(woosee, request):
@@ -553,109 +583,124 @@ def get_capex_admin():
     data = r.lrange(key_name, 0, -1)
     return data
 
-'''
+
+
 def mail_confirmation(data):
-    try:
-        user_details = user_info(data["conf_by"])
-
-        _data = {
-            "book_who": str(user_details["first_name"]).title()
-            + " "
-            + str(user_details["last_name"]).title(),
-            "meeting_about": str(data["meeting_about"]).title(),
-            "location": data["conf_room"],
-            "start_data_time": data["conf_start_date"] + " " + data["conf_start_time"],
-            "end_data_time": data["conf_end_date"] + " " + data["conf_end_time"],
-            "dept": user_details["department"],
-        }
-
+    try: 
         load_dotenv()
-        subject = "Adorhub - Conference Booked"
         from_email = os.getenv("SENDER_EMAIL")
-        to_email = user_details["email_id"]
+        to_email = data['next_approver_email_id']
         smtp_server = os.getenv("SMTP_SERVER")
         smtp_port = os.getenv("SMTP_PORT")
         smtp_username = os.getenv("SMTP_USERNAME")
         smtp_password = os.getenv("SMTP_PASSWORD")
 
-        html = """
-   <!DOCTYPE html>
-<html lang="en">
-<head>
-    <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro' rel='stylesheet' type='text/css'>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="padding: 1rem; font-family: 'Source Sans Pro', sans-serif;">
+        capex_id=data['capex_id']
+        budget_id=data['budget_id']
 
-    <span style="display: inline-block;">
-        Hi 
-        <span style="display: inline-block;">{}</span>,
-    </span>
-
-    <div style="display: flex;">
-        <div style="width: 600px; margin-top: 1rem; display: grid; grid-template-columns: auto; gap: 2rem; width:fit-content;border-radius: 10px;padding:2rem">
-        <br>
-            <img src="https://adorwelding.org/Adorhub_uploads/Capex.png" width="800" alt="Conference Header" style="display: flex;justify-content: center;">
-            <br>
-            <div style="color: #555259; padding: 0 2rem;">
-                <div style="margin-bottom: 2rem;">
-                <br>
-                    <span style="font-size: 2rem; font-weight: 700;">Conference Details</span>
-                    <hr>
-                    <br>
-                </div>
-
-                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
-                    <span>Agenda: </span>
-                    <span>{}</span>
-                </div>
-
-                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
-                    <span>Location: </span>
-                    <span>{}</span>
-                </div>
-
-                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
-                    <span>Start Date/Time: </span>
-                    <span>{}</span>
-                </div>
-
-                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
-                    <span>End Date/Time: </span>
-                    <span>{}</span>
-                </div>
-
-                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
-                    <span>Booked By: </span>
-                    <span>{}</span>
-                </div>
-
-                <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
-                    <span>Department:</span>
-                    <span>{}</span>
-                </div>
-    
-            </div>
-<br>
-            <img src="https://adorwelding.org/Adorhub_uploads/Footer.png" width="700" alt="Conference Footer" style="display: flex;justify-content: center;">
-
+        
+        for_md_only='''
+        <div>
+        <span>Click on the link below to Approve or Reject</span>
+         <div style="display: flex; gap: 2px; margin-top:1rem;">
+            <a href="{}/capex/md/approval/mail/?type=0&budget_id={}&capex_id={}">Approve</a>
+            <a style="display: flex; gap: 2px; margin-left:1rem;" href="{}/capex/md/approval/mail/?type=1&budget_id={}&capex_id={}">Reject</a>
         </div>
-    </div>
-<br/>
-</body>
-</html>
+        </div>'''.format(os.getenv("CAPEX_API"),budget_id,capex_id,os.getenv("CAPEX_API"),budget_id,capex_id)
+        
+        for_others='''<div></div>'''
+        
+        approval_btn=for_md_only if data['next_approver_emp_id']=='15604' else for_others
 
 
-""".format(
-            _data["book_who"],
-            _data["meeting_about"],
-            _data["location"],
-            _data["start_data_time"],
-            _data["end_data_time"],
-            _data["book_who"],
-            _data["dept"],
+        approved_by='''<div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <span>Approved By : </span>
+                            <span>{}</span>
+                        </div>'''.format(data['approved_by']) if data['approved_by'] else '''<div></div>'''
+
+        approved_comment='''<div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <span>Approver Comment : </span>
+                            <span>{}</span>
+                        </div>'''.format(data['assignees_comment']) if data['assignees_comment'] else '''<div></div>'''
+
+        html = """
+            <!DOCTYPE html>
+                <html lang="en">  
+                <head>
+                    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro" rel="stylesheet" type="text/css" />
+                    <meta charset="UTF-8" />
+                    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                </head>
+                
+                <body style="padding: 1rem; font-family: 'Source Sans Pro', sans-serif;">
+                <span>Hi {},</span>
+                    <div style="display: flex;">
+                    <div style="width: 600px; margin-top: 1rem; display: grid; grid-template-columns: auto; gap: 2rem; width:fit-content;border-radius: 10px;padding:2rem">
+                        <br />
+                        <img src="https://adorwelding.org/Adorhub_uploads/Capex.png" width="800" alt="Conference Header" style="display: flex;justify-content: center;" />
+                        <div style="color: #555259; padding: 0 2rem;">
+                        <div style="margin-bottom: 1rem;">
+                            <br />
+                            <span style="font-size: 2rem; font-weight: 700;">Capex Details</span>
+                            <hr />
+                            <span style="font-size: 1.5rem;  text-align: center;">Status :</span>
+                            <span style="font-weight: 700; font-size: 1.5rem;text-align: center;">{}</span>
+                            <div>
+                            <br>
+                            </div>
+                            <br />
+                        </div>
+                        <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <span>Nature of requirement : </span>
+                            <span>{}</span>
+                        </div>
+                        <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <span>Raised By : </span>
+                            <span>{}</span>
+                        </div>
+                
+                        <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <span>Department : </span>
+                            <span>{}</span>
+                        </div>
+                
+                        <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <span>Capex Raised Date : </span>
+                            <span>{}</span>
+                        </div>
+                
+                        <div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+                            <span>Total Cost (₹ in Lakhs) : </span>
+                            <span>{}</span>
+                        </div>
+                        {}
+                        {}
+                        <br>
+                       {}
+                        <br>
+                        <div style="display: flex; gap: 2px; margin-bottom:.5rem;">
+                            <strong>Link : </strong>
+                            <a href="https://ador.net.in/login">ADORHUB</a>
+                        </div>
+                        </div>
+                        <br />
+                        <img src="https://adorwelding.org/Adorhub_uploads/Footer.png" width="700" alt="Conference Footer" style="display: flex;justify-content: center;" />
+                    </div>
+                    </div>
+                    <br />
+                </body>
+                </html>""".format(
+            data['next_approver_user_name'],
+            data['capex_status'],
+            data['nature_of_requirement'],
+            data['raised_by'],
+            data['department'],
+            datetime.strptime(data['capex_raised_date'][0:10], "%Y-%m-%d").strftime("%d-%m-%Y"),
+            data['total_cost'],
+            approved_by,
+            approved_comment,
+            approval_btn
         )
 
         # Set up the email addresses and password. Please replace below with your email address and password
@@ -667,7 +712,8 @@ def mail_confirmation(data):
         email_message = MIMEMultipart()
         email_message["From"] = email_from
         email_message["To"] = email_to
-        email_message["Subject"] = "Adorhub - Conference Booking Confirmation"
+
+        email_message["Subject"] = "Adorhub - Capex Approval Notification"
 
         email_message.attach(MIMEText(html, "html"))
         email_string = email_message.as_string()
@@ -682,7 +728,43 @@ def mail_confirmation(data):
     except Exception as e:
         print("Error in sending email:", e)
         return Response("Error in sending email", status=500)
+    
 
 
+@api_view(['GET'])
+def md_approval_on_mail(request):
+    try:
+        button_option=request.GET['type']
+        budget_id=request.GET['budget_id']
+        capex_id=request.GET['capex_id']
+        
+        # 0 is APPROVE
+        # 1 is REJECT
 
-'''
+        api_url = '{}/capex/data-capex/{}/'.format(os.getenv("CAPEX_API"),capex_id)
+
+        payload = {
+        'budget_id':budget_id,
+        'capex_id':capex_id,
+        'approver_status':'',
+        'approver_comment':'',
+        'user_no':'15604',
+    }
+        
+        match button_option:
+            case '0':
+                payload['approver_status']="0"
+                payload['approver_comment']="Approved from mail"
+                response = requests.put(api_url, json=payload)
+                return HttpResponse("Message : Capex Approved")
+            
+            case '1':
+                payload['approver_status']="1"
+                payload['approver_comment']="Rejected from mail"
+                response = requests.put(api_url, json=payload)
+                return HttpResponse("Message : Capex Rejected")
+
+            case _:
+                return HttpResponse("Something Went Wrong")
+    except Exception as e:
+        print(e)
