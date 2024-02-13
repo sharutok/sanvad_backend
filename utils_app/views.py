@@ -570,3 +570,42 @@ def which_frame(request):
         return Response({"status": 200, "response": woosee})
     except Exception as e:
         return Response(400)
+
+
+
+
+def common_mail_template(to_email:list,html,subject):
+    try: 
+        load_dotenv()
+        from_email = os.getenv("SENDER_EMAIL")
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = os.getenv("SMTP_PORT")
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+
+        # Set up the email addresses and password. Please replace below with your email address and password
+        email_from = from_email
+        password = smtp_password
+        email_to = list(set(to_email)) 
+
+        # Create a MIMEMultipart class, and set up the From, To, Subject fields
+        email_message = MIMEMultipart()
+        email_message["From"] = email_from
+        email_message["To"] = ", ".join(email_to)
+
+        email_message["Subject"] = subject
+
+        email_message.attach(MIMEText(html, "html"))
+        email_string = email_message.as_string()
+
+        with smtplib.SMTP("smtp-mail.outlook.com", 587) as server:
+            server.starttls()
+            server.login(email_from, password)
+            server.sendmail(email_from, email_to, email_string)
+
+        print("Email sent successfully")
+        return Response("Email sent successfully", status=200)
+    except Exception as e:
+        print("Error in sending email:", e)
+        return Response("Error in sending email", status=500)
+        

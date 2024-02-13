@@ -18,6 +18,7 @@ from email.mime.multipart import MIMEMultipart
 from sanvad_project.settings import r
 import os
 import json
+from utils_app.views import common_mail_template
 from django.db import connection
 from ticket_app.views import user_details_from_emp_id, ticket_wf_status
 from datetime import datetime
@@ -146,7 +147,7 @@ def get_all_capex_data(request):
     woosee = request.GET["woosee"]
     raw_sql_query = """
                             select
-                            cdm.id,
+                            cdm.id capex_no,
 	                        cem.budget_no ,
                         	cdm.nature_of_requirement ,
                             cdm.total_cost,
@@ -158,10 +159,6 @@ def get_all_capex_data(request):
                         	cdm.budget_type,
                         	cdm.budget_id ,
                         	cdm.id capex_id,
-                            ROW_NUMBER () OVER (
-                                ORDER BY 
-                                cdm.id
-                            ) capex_no,
                             to_char(cdm.created_at::timestamp, 'DD-MM-YYYY') created_at,
                             concat(um.first_name,' ',um.last_name) capex_current_at,
                             concat(um1.first_name,' ',um1.last_name) capex_raised_by,
@@ -176,9 +173,9 @@ def get_all_capex_data(request):
 							cdm.capex_raised_by =um1.emp_no 
                             where 
                              cdm.delete_flag=false and (cdm.capex_raised_by like '%{}%' or cdm.capex_current_at like '%{}%' and 
-                            (cem.budget_no like '%{}%' or cem.purpose_code like '%{}%' or cdm.return_on_investment like '%{}%') ) ;
+                            (cem.budget_no like '%{}%' or cem.purpose_code like '%{}%' or cdm.return_on_investment like '%{}%'  ) ) ;
     """.format(
-        woosee, woosee, search_query, search_query, search_query
+        woosee, woosee, search_query, search_query, search_query,search_query
     )
     with connection.cursor() as cursor:
         cursor.execute(raw_sql_query)
@@ -381,6 +378,7 @@ def get_by_capex_id(request, id):
                         value[1],
                         request.data["capex_id"],
                     )
+                    approve_mail_ready_data(serializers,value,obj_data)
                     
                 #### FOR CORPORATE
                 case "for_corporate":
@@ -395,10 +393,8 @@ def get_by_capex_id(request, id):
                         request.data["capex_id"],
                     )
                     approve_mail_ready_data(serializers,value,obj_data)
+                    
             return Response({"data": serializers.data, "status_code": status.HTTP_200_OK})
-
-
-
 
 
 def create_mail_ready_data(serializers,capex_current_at):    
@@ -432,32 +428,38 @@ def create_mail_ready_data(serializers,capex_current_at):
 
 
 def approve_mail_ready_data(serializers,value,obj_data):
+    
+    #check if user is md
     user_info=user_details_from_emp_id(serializers.data["capex_raised_by"])
-    user_name="{} {}".format(user_info["first_name"].capitalize(), user_info["last_name"].capitalize())
-    user_department=user_info['department']
     user_email_id=user_info['email_id']
+    
+    if obj_data['emp_id'] !='15604':
+        user_name="{} {}".format(user_info["first_name"].capitalize(), user_info["last_name"].capitalize())
+        user_department=user_info['department']
 
-    next_approver=user_details_from_emp_id(value[0])
-    next_approver_email_id=next_approver['email_id']
-    next_approver_user_name="{} {}".format(next_approver["first_name"].capitalize(), next_approver["last_name"].capitalize())
+        next_approver=user_details_from_emp_id(value[0])
+        next_approver_email_id=next_approver['email_id']
+        next_approver_user_name="{} {}".format(next_approver["first_name"].capitalize(), next_approver["last_name"].capitalize())
 
-    data={
-    'capex_status':value[1],
-    'assignees_comment':obj_data['comments'],
-    'approved_by':obj_data["user_name"],
-    'nature_of_requirement':serializers.data["nature_of_requirement"],
-    'raised_by':user_name,
-    'department':user_department,
-    'capex_raised_date':serializers.data["created_at"],
-    'total_cost':serializers.data["total_cost"],
-    'user_email_id':user_email_id,
-    'next_approver_emp_id':value[0],
-    'next_approver_email_id':next_approver_email_id,
-    'next_approver_user_name':next_approver_user_name,
-    'capex_id':serializers.data["id"],
-    'budget_id':serializers.data["budget_id"]
-    }
-    mail_confirmation(data)
+        data={
+        'capex_status':value[1],
+        'assignees_comment':obj_data['comments'],
+        'approved_by':obj_data["user_name"],
+        'nature_of_requirement':serializers.data["nature_of_requirement"],
+        'raised_by':user_name,
+        'department':user_department,
+        'capex_raised_date':serializers.data["created_at"],
+        'total_cost':serializers.data["total_cost"],
+        'user_email_id':user_email_id,
+        'next_approver_emp_id':value[0],
+        'next_approver_email_id':next_approver_email_id,
+        'next_approver_user_name':next_approver_user_name,
+        'capex_id':serializers.data["id"],
+        'budget_id':serializers.data["budget_id"]
+        }
+        mail_confirmation(data)
+    else:
+        capex_approved_mail_notification(serializers,user_email_id)
 
 @api_view(["POST"])
 def create_new_capex(request):
@@ -583,6 +585,51 @@ def get_capex_admin():
     data = r.lrange(key_name, 0, -1)
     return data
 
+
+def capex_approved_mail_notification(serializers,user_email_id):
+    try:
+        html='''
+                  <!DOCTYPE html>
+                <html lang="en">  
+                <head>
+                    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro" rel="stylesheet" type="text/css" />
+                    <meta charset="UTF-8" />
+                    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                </head>
+                <body style="padding: 1rem; font-family: 'Source Sans Pro', sans-serif;">
+                    <div style="display: flex;">
+                    <div style="width: 600px; margin-top: 1rem; display: grid; grid-template-columns: auto; gap: 2rem; width:fit-content;border-radius: 10px;padding:2rem">
+                        <br />
+                        <img src="https://adorwelding.org/Adorhub_uploads/Capex.png" width="800" alt="Conference Header" style="display: flex;justify-content: center;" />
+                        <div style="color: #555259; padding: 0 2rem;">
+                        <div style="margin-bottom: 1rem;">
+                            <br />
+                            <div style='display:flex;justify-content: center;'>
+                            <span style="font-size: 2rem; font-weight: 700;">Capex Approved</span>
+                            </div>
+                            <hr />
+                            <div style='display:flex;justify-content: center;gap:.5rem'>
+                            <span style="font-size: 1rem; font-weight: 500;">Capex Number : </span>
+                            <span style="font-size: 1rem; font-weight: 500;">{}</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 2px; margin-bottom:.5rem;display:flex;justify-content: center;">
+                            <strong>Website Link : </strong>
+                            <a href="https://ador.net.in/login">ADORHUB</a>
+                        </div>
+                        </div>
+                        <br />
+                        <img src="https://adorwelding.org/Adorhub_uploads/Footer.png" width="700" alt="Conference Footer" style="display: flex;justify-content: center;" />
+                    </div>
+                    </div>
+                    <br />
+                </body>
+                </html>
+        '''.format(serializers.data["id"])
+        common_mail_template(html=html,subject="Adorhub - Capex Approval Notification",to_email=[user_email_id])
+    except Exception as e:
+        print("error in capex_approved_mail_notification",e)
 
 
 def mail_confirmation(data):
@@ -755,16 +802,56 @@ def md_approval_on_mail(request):
             case '0':
                 payload['approver_status']="0"
                 payload['approver_comment']="Approved from mail"
-                response = requests.put(api_url, json=payload)
-                return HttpResponse("Message : Capex Approved")
+                requests.put(api_url, json=payload)
+                return HttpResponse(notify_md_return_meassage.format('Approved'))
             
             case '1':
                 payload['approver_status']="1"
                 payload['approver_comment']="Rejected from mail"
-                response = requests.put(api_url, json=payload)
-                return HttpResponse("Message : Capex Rejected")
+                requests.put(api_url, json=payload)
+                return HttpResponse(notify_md_return_meassage.format('Rejected'))
 
             case _:
-                return HttpResponse("Something Went Wrong")
+                return HttpResponse(",Something Went Wrong")
     except Exception as e:
         print(e)
+
+notify_md_return_meassage='''
+  <!DOCTYPE html>
+                <html lang="en">  
+                <head>
+                    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro" rel="stylesheet" type="text/css" />
+                    <meta charset="UTF-8" />
+                    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                </head>
+                
+                <body style="padding: 1rem; font-family: 'Source Sans Pro', sans-serif;display:flex;justify-content: center;">
+                    <div style="display: flex;">
+                    <div style="width: 600px; margin-top: 1rem; display: grid; grid-template-columns: auto; gap: 2rem; width:fit-content;border-radius: 10px;padding:2rem">
+                        <br />
+                        <img src="https://adorwelding.org/Adorhub_uploads/Capex.png" width="800" alt="Conference Header" style="display: flex;justify-content: center;" />
+                        <div style="color: #555259; padding: 0 2rem;">
+                        <div style="margin-bottom: 1rem;">
+                            <br />
+                            <div style='display:flex;justify-content: center;'>
+                            <span style="font-size: 2rem; font-weight: 700;">Capex {}</span>
+                            </div>
+                            <hr />
+                        </div>
+                        <div style="display: flex; gap: 2px; margin-bottom:.5rem;display:flex;justify-content: center;">
+                            <strong>Website Link : </strong>
+                            <a href="https://ador.net.in/login">ADORHUB</a>
+                        </div>
+                        </div>
+                        <div style="display:flex;justify-content: center;">
+                        <address>Please close this tab. Thank you!</address>
+                        </div>
+                    </div>
+                    </div>
+                    <br />
+                </body>
+                </html>
+'''
+
+
