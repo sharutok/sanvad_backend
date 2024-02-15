@@ -80,7 +80,7 @@ def read_data_excel(request):
         return Response({"errors": e})
 
 
-# GET ALL DATA
+# GET ALL BUDGET DATA
 @api_view(["GET"])
 def get_all_budget_data(request):
     search_query = request.GET["search"]
@@ -140,53 +140,76 @@ def get_all_budget_data(request):
     result_page = paginator.paginate_queryset(rows, request)
     return paginator.get_paginated_response(result_page)
 
-
+# GET ALL CAPEX DATA 
 @api_view(["GET"])
 def get_all_capex_data(request):
-    search_query = request.GET["search"]
-    woosee = request.GET["woosee"]
-    raw_sql_query = """
-                            select
+    try:
+        search_query = request.GET["search"]
+        user_details=user_details_from_emp_id(request.GET["woosee"])
+        department=""
+        woosee=""
+        view=request.GET['view']
+
+        # PERMISSION ACCORDING TO VIEW
+        match view:
+        # CAPEX DATA
+            case "approve_capex_view":
+                woosee=request.GET["woosee"]
+                department=user_details['department']
+        # RESPECTIVE DEPARTMENT CAPEX
+            case "dept_capex_view":
+                department=user_details['department']
+                woosee=""
+        # ADMIN VIEW ALL CAPEX
+            case "admin_capex_view":
+                woosee=""
+                department=""
+            case _:
+                print("nope....")
+        
+        raw_sql_query = """ select
                             cdm.id capex_no,
-	                        cem.budget_no ,
-                        	cdm.nature_of_requirement ,
+                            cem.budget_no ,
+                            cdm.nature_of_requirement ,
                             cdm.total_cost,
-                        	cem.purpose_code ,
+                            cem.purpose_code ,
                             to_char(cdm.requisition_date::timestamp, 'DD-MM-YYYY') requisition_date,
-                        	cdm.payback_period ,
-                        	cdm.return_on_investment ,
+                            cdm.payback_period ,
+                            cdm.return_on_investment ,
                             um1.department,
-                        	cdm.budget_type,
-                        	cdm.budget_id ,
-                        	cdm.id capex_id,
+                            cdm.budget_type,
+                            cdm.budget_id ,
+                            cdm.id capex_id,
                             to_char(cdm.created_at::timestamp, 'DD-MM-YYYY') created_at,
                             concat(um.first_name,' ',um.last_name) capex_current_at,
                             concat(um1.first_name,' ',um1.last_name) capex_raised_by,
                             cdm.capex_status
                             from
-                            	capex_data_master cdm
+                                capex_data_master cdm
                             left join user_management um on
-                            	cdm.capex_current_at = um.emp_no
+                                cdm.capex_current_at = um.emp_no
                             left join capex_excel_master cem on
                             cem.id = cdm.budget_id 
                             left join user_management um1 on
-							cdm.capex_raised_by =um1.emp_no 
+                            cdm.capex_raised_by =um1.emp_no 
                             where 
-                             cdm.delete_flag=false and (cdm.capex_raised_by like '%{}%' or cdm.capex_current_at like '%{}%' and 
-                            (cem.budget_no like '%{}%' or cem.purpose_code like '%{}%' or cdm.return_on_investment like '%{}%'  ) ) ;
-    """.format(
-        woosee, woosee, search_query, search_query, search_query,search_query
-    )
-    with connection.cursor() as cursor:
-        cursor.execute(raw_sql_query)
-        results = cursor.fetchall()
-        rows = [
-            dict(zip([col[0] for col in cursor.description], row)) for row in results
-        ]
-    paginator = PageNumberPagination()
-    paginator.page_size = 10
-    result_page = paginator.paginate_queryset(rows, request)
-    return paginator.get_paginated_response(result_page)
+                            cdm.delete_flag=false and ((cdm.capex_raised_by like '%{}%' or cdm.capex_current_at like '%{}%' and um1.department like '%{}%') and 
+                            (cem.budget_no like '%{}%' or cem.purpose_code like '%{}%' or cdm.return_on_investment like '%{}%')) ;""".format(
+            woosee, woosee,department, search_query, search_query, search_query,search_query
+        )
+        with connection.cursor() as cursor:
+            cursor.execute(raw_sql_query)
+            results = cursor.fetchall()
+            rows = [
+                dict(zip([col[0] for col in cursor.description], row)) for row in results
+            ]
+        paginator = PageNumberPagination()
+        paginator.page_size = 10
+        result_page = paginator.paginate_queryset(rows, request)
+        return paginator.get_paginated_response(result_page)
+    except Exception as e:
+        print("get_all_capex_data",e)
+        return Response({"status": status.HTTP_400_BAD_REQUEST})
 
 
 # GET BY BUDGET ID
