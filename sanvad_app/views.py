@@ -127,19 +127,22 @@ def login_verify_user(request):
                 )
                 provided_password = password.encode("utf-8")
                 if bcrypt.checkpw(provided_password, hashed_password_from_database):
+                    is_feature = remember_me(serializers.data['emp_no'],serializers.data) if request.data['remember_me'] else ""   
+                    print(is_feature)   
                     return Response(
                         {
                             "status": status.HTTP_200_OK,
                             "emp_no": serializers.data["emp_no"],
                             "module_permission": serializers.data["module_permission"],
-                            "initials": str(serializers.data["first_name"])[0:1]
-                            + str(serializers.data["last_name"])[0:1],
+                            "initials": str(serializers.data["first_name"])[0:1]+ str(serializers.data["last_name"])[0:1],
+                            "remember_me":str(is_feature),
                         },
                     )
                 else:
                     return Response({"status": status.HTTP_400_BAD_REQUEST})
             else:
                 return Response({"status": status.HTTP_400_BAD_REQUEST})
+        
     except Exception as e:
         print(e, "error")
         return Response({"status": status.HTTP_404_NOT_FOUND})
@@ -150,7 +153,7 @@ def birthday_list(request):
     try:
         ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
         return Response({"data": json.loads(r.get("todays_birthday"))})
-    except e:
+    except Exception as e:
         print("error", e)
         return Response({"error": e})
 
@@ -280,3 +283,14 @@ def get_list_of_managers_based_on_department(request):
             dict(zip([col[0] for col in cursor.description], row)) for row in results
         ]
     return Response(rows)
+
+def remember_me(emp_no,obj):
+    try:
+        hashed_random_string = bcrypt.hashpw(emp_no.encode('utf-8'), bcrypt.gensalt()).decode()
+        _emp_no=obj['emp_no']
+        sql='''update user_management set remember_me_auth ='{}' where emp_no ='{}';'''.format(hashed_random_string,_emp_no)
+        cursor = connection.cursor()
+        cursor.execute(sql)
+        return hashed_random_string
+    except Exception as e:
+        print("error in remember_me",e)

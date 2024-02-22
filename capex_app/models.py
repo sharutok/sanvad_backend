@@ -47,6 +47,7 @@ class Capex1(models.Model):
     nature_of_requirement = models.CharField(max_length=150, null=True)
     purpose = models.CharField(max_length=150, null=True)
     payback_period = models.CharField(max_length=150, null=True)
+    capex_for_which_department = models.CharField(max_length=150, null=True)
     return_on_investment = models.CharField(max_length=150, null=True)
     budget_type = models.CharField(max_length=150, null=True)
     requisition_date = models.DateField(null=True)

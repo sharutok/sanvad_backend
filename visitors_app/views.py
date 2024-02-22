@@ -67,10 +67,11 @@ WHERE
     vm.raised_by LIKE '%{}%'
     AND vm.delete_flag = false
     AND UPPER(plant_name) ILIKE '%{}%'
-    AND (vm.reason_for_visit LIKE '%{}%' OR vm.raised_by LIKE '%{}%' OR vm.v_company LIKE '%{}%')
+    AND (vm.reason_for_visit LIKE '%{}%' OR vm.raised_by LIKE '%{}%' OR vm.v_company LIKE '%{}%' OR vm.id::text LIKE '%{}%')
 """.format(
         woosee,
         plant,
+        search_query,
         search_query,
         search_query,
         search_query,

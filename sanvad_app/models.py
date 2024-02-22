@@ -33,6 +33,7 @@ class UserManagement(models.Model):
     user_status = models.BooleanField(default=False)
     user_role = models.CharField(max_length=150, null=True)
     module_permission = ArrayField(models.CharField(max_length=150), null=True)
+    remember_me_auth=models.CharField(max_length=150, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
