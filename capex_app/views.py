@@ -100,9 +100,9 @@ def get_all_budget_data(request):
                             	SELECT
                                 cem.id AS budget_id,
                                 COALESCE(COUNT(cdm.budget_id), 0) AS no_of_capex,
-                                COALESCE(SUM(cdm.total_cost), 0) AS consumed,
-                                COALESCE(cem.final_budget, 0) AS final_budget,
-                                COALESCE(COALESCE(cem.final_budget, 0) - COALESCE(SUM(cdm.total_cost), 0), 0) AS budget_remaining
+                                ROUND(COALESCE(SUM(cdm.total_cost),0)::numeric ,2) AS consumed,
+                                ROUND(COALESCE(cem.final_budget/100000,0)::numeric,2) AS final_budget,
+                                ROUND(COALESCE(COALESCE(cem.final_budget/100000,0) - COALESCE(SUM(cdm.total_cost),0),0)::numeric ,2) AS budget_remaining
                             FROM
                                 capex_excel_master cem
                             LEFT JOIN
