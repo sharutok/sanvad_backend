@@ -72,8 +72,7 @@ def all_data(request):
         end as ROLE,
         concat(um.first_name, ' ',
         um.last_name) tkt_current_at,
-        concat(um2.first_name,' ',
-        um2.last_name) requester_emp_name,
+        concat(um2.first_name,' ',um2.last_name) requester_emp_name,
         case
 		when tkt_status = 'CLOSED' then replace(approval_flow[jsonb_array_length(approval_flow)-1]['time']::text,'"',' ')
 		end as closed_date,
@@ -95,9 +94,14 @@ def all_data(request):
         	or requester_emp_no like '%{}%') and tkt_type like '%{}%')
          and
         	( ticket_no::text like '%{}%'
-            or tkt_type like '%{}%'
-            or req_type like '%{}%'
-            or tkt_title like '%{}%'
+            or tkt_type ilike '%{}%'
+            or req_type ilike '%{}%'
+            or tkt_title ilike '%{}%'
+            or um.first_name ilike '%{}%' 
+            or um.last_name ilike '%{}%'
+            or um2.first_name ilike '%{}%' 
+            or um2.last_name ilike '%{}%'
+            or tkt_status ilike '%{}%'
             )
             and ts.delete_flag = false
             group by
@@ -117,6 +121,11 @@ def all_data(request):
         _emp_no,
         _emp_no,
         _tkt_type,
+        _search_query,
+        _search_query,
+        _search_query,
+        _search_query,
+        _search_query,
         _search_query,
         _search_query,
         _search_query,
@@ -171,9 +180,14 @@ def view_all_tickets(request):
         left join  tkt_file_uploads tfu on
 			ts.id = tfu.ticket_ref_id
         	where 
-        	( ticket_no::text like '%{}%'
-            or tkt_type like '%{}%'
-            or req_type like '%{}%'
+        	( ticket_no::text ilike '%{}%'
+            or tkt_type ilike '%{}%'
+            or req_type ilike '%{}%'
+            or um.first_name ilike '%{}%' 
+            or um.last_name ilike '%{}%'
+            or um2.first_name ilike '%{}%' 
+            or um2.last_name ilike '%{}%'
+            or tkt_status ilike '%{}%'
             )
             and ts.delete_flag = false
             group by
@@ -190,6 +204,11 @@ def view_all_tickets(request):
         	order by ts.created_at desc
          ;
     """.format(
+        _search_query,
+        _search_query,
+        _search_query,
+        _search_query,
+        _search_query,
         _search_query,
         _search_query,
         _search_query,

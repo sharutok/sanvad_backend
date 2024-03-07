@@ -6,7 +6,7 @@ from sanvad_app.views import (
     login_verify_user,
     birthday_list,
     user_permission_dynamic_values,
-    reset_password,
+    reset_password,validate_remember_me,
     get_list_of_managers_based_on_department,
 )
 
@@ -25,4 +25,5 @@ urlpatterns = [
         get_list_of_managers_based_on_department,
         name="get-list-of-managers-based-on-department",
     ),
+    path("validate/token/",validate_remember_me,name="validate-remember-me")
 ]

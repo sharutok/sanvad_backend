@@ -6,7 +6,7 @@ from sanvad_app.serializers import userManagementSerializer
 from rest_framework import status
 import requests
 from rest_framework.pagination import PageNumberPagination
-from datetime import datetime
+from datetime import datetime,timedelta
 from django.db import connection
 import json
 from sanvad_project.settings import r
@@ -21,6 +21,10 @@ import string
 import PIL.Image as Image
 import io
 import base64
+import jwt
+
+from utils_app.views import select_sql
+
 
 
 # GET ALL DATA.
@@ -113,6 +117,7 @@ def login_verify_user(request):
     try:
         email = request.data["email"] + request.data["prefix"]
         password = request.data["password"]
+        print(request.data)
 
         if email:
             queryset_email = UserManagement.objects.filter(email_id=email)
@@ -127,8 +132,7 @@ def login_verify_user(request):
                 )
                 provided_password = password.encode("utf-8")
                 if bcrypt.checkpw(provided_password, hashed_password_from_database):
-                    is_feature = remember_me(serializers.data['emp_no'],serializers.data) if request.data['remember_me'] else ""   
-                    print(is_feature)   
+                    is_feature = remember_me(serializers.data) if request.data['remember_me']==True else ""
                     return Response(
                         {
                             "status": status.HTTP_200_OK,
@@ -284,13 +288,39 @@ def get_list_of_managers_based_on_department(request):
         ]
     return Response(rows)
 
-def remember_me(emp_no,obj):
+def remember_me(obj):
     try:
-        hashed_random_string = bcrypt.hashpw(emp_no.encode('utf-8'), bcrypt.gensalt()).decode()
+        secret_key = '!kp_s,zn2ir0wiascn[oquoq]'
         _emp_no=obj['emp_no']
-        sql='''update user_management set remember_me_auth ='{}' where emp_no ='{}';'''.format(hashed_random_string,_emp_no)
+        hashed_random_string = {
+        'user_id': _emp_no,
+        'exp': datetime.utcnow() + timedelta(days=7),  # Expiry 7 days from now
+        "emp_no":obj['emp_no'],
+        "module_permission":obj['module_permission'],
+        "initials":str(obj["first_name"])[0:1]+ str(obj["last_name"])[0:1],
+        }
+
+        # Generate JWT token
+        token = jwt.encode(hashed_random_string, secret_key, algorithm='HS256')
+        sql='''update user_management set remember_me_auth ='{}' where emp_no ='{}';'''.format(token,_emp_no)
         cursor = connection.cursor()
         cursor.execute(sql)
-        return hashed_random_string
+        return token
     except Exception as e:
         print("error in remember_me",e)
+
+@api_view(["GET"])
+def validate_remember_me(request):
+    secret_key = '!kp_s,zn2ir0wiascn[oquoq]'
+    token =  request.GET["token"]
+    try:
+        data=jwt.decode(token, secret_key, algorithms=['HS256'])
+        select_sql("SELECT * FROM user_management um where manager_code ='15604'".format())
+        print("valid")
+        return Response({"mess":200,"data":data})
+    except jwt.ExpiredSignatureError:
+        print("JWT token has expired.")
+        return Response({"mess":400})
+    except jwt.InvalidTokenError:
+        print("Invalid JWT token.")
+        return Response({"mess":400})
