@@ -1,4 +1,4 @@
-from django.shortcuts import render
+import json
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from capex_app.models import Capex, Capex1
@@ -19,7 +19,7 @@ from sanvad_project.settings import r
 import os
 from utils_app.views import common_mail_template
 from django.db import connection
-from ticket_app.views import user_details_from_emp_id, ticket_wf_status
+from ticket_app.views import user_details_from_emp_id
 from datetime import datetime
 from psycopg2.extras import Json
 from sanvad_app.models import UserManagement
@@ -309,14 +309,7 @@ def get_by_capex_id(request, id):
                 "next_approver": "",
             }
 
-            sql = """
-                    UPDATE capex_data_master
-                    SET 
-                    approval_flow = approval_flow || %s::jsonb,
-                    capex_current_at = %s,
-                    capex_status = %s
-                    WHERE id = %s;
-                    """
+            sql = """ UPDATE capex_data_master SET  approval_flow = approval_flow || %s::jsonb, capex_current_at = %s, capex_status = %s WHERE id = %s;"""
 
             def check_condition_for_corporate(approver_status):
                 # approved
@@ -326,11 +319,12 @@ def get_by_capex_id(request, id):
                     else:    
                         raised_by = serializers.data["capex_raised_by"]
                         approved_by = request.data["user_no"]
-                        get_wf = (new_wf_for_corporate(raised_by))
+
+                        data=capex_wf_approvers(user_details_from_emp_id(raised_by)["department"])
                         row = []
-                        for data in get_wf:
-                            for key, value in data.items():
-                                row.append(value.split("#")[1])
+                        for value in data:
+                            row.append(value.split("#")[1])
+                        
                         capex_current_at = row[row.index(str(approved_by)) + 1]
                         return [capex_current_at, capex_wf_status[0]]
 
@@ -342,11 +336,12 @@ def get_by_capex_id(request, id):
                 if approver_status == "3":
                     justification_by = request.data["user_no"]
                     raised_by = serializers.data["capex_raised_by"]
-                    get_wf = (new_wf_for_corporate(raised_by))
+                    
                     row = []
-                    for data in get_wf:
-                        for key, value in data.items():
-                            row.append((value.split("#")[1]))
+                    data=capex_wf_approvers(user_details_from_emp_id(raised_by)["department"])
+                    row = []
+                    for value in data:
+                        row.append(value.split("#")[1])
                     capex_current_at = row[row.index(str(justification_by)) - 1]
                     return [capex_current_at, capex_wf_status[4]]
 
@@ -362,11 +357,11 @@ def get_by_capex_id(request, id):
                     else:    
                         raised_by = serializers.data["capex_raised_by"]
                         approved_by = request.data["user_no"]
-                        get_wf = (new_wf_for_plant.format(raised_by))
                         row = []
-                        for data in get_wf:
-                            for key, value in data.items():
-                                row.append(value.split("#")[1])
+                        data=capex_wf_approvers(user_details_from_emp_id(raised_by)["department"])
+                        row = []
+                        for value in data:
+                            row.append(value.split("#")[1])
                         capex_current_at = row[row.index(str(approved_by)) + 1]
                         return [capex_current_at, capex_wf_status[0]]
 
@@ -378,11 +373,11 @@ def get_by_capex_id(request, id):
                 if approver_status == "3":
                     justification_by = request.data["user_no"]
                     raised_by = serializers.data["capex_raised_by"]
-                    get_wf = (new_wf_for_plant(raised_by))
                     row = []
-                    for data in get_wf:
-                        for key, value in data.items():
-                            row.append((value.split("#")[1]))
+                    data=capex_wf_approvers(user_details_from_emp_id(raised_by)["department"])
+                    row = []
+                    for value in data:
+                        row.append(value.split("#")[1])
                     capex_current_at = row[row.index(str(justification_by)) - 1]
                     return [capex_current_at, capex_wf_status[4]]
 
@@ -492,14 +487,16 @@ def approve_mail_ready_data(serializers,value,obj_data):
 def create_new_capex(request):
     try:
         raised_by_emp = request.data["raised_by"]
-        whose_ur_manager=""
-        d1 = new_wf_for_plant(raised_by_emp)
-        d2 = new_wf_for_corporate(raised_by_emp)
-        d = "for_plant" if d1 else "for_corporate"
-        whose_ur_manager=new_wf_for_corporate(raised_by_emp)[0]['index_1'].split("#")[1] if new_wf_for_corporate(raised_by_emp)[0]['index_1'].split("#")[1] else new_wf_for_plant(raised_by_emp)[0]['index_1'].split("#")[1]
+        data=execute_sql("select * from user_management um where emp_no='{}';".format(raised_by_emp))[0]
+        department=data['department']
+        
+        get_capex_flow_info=execute_sql("select * from capex_workflow cw where department like '%{}%';".format(department))[0]
+        which_flow="for_plant" if str(get_capex_flow_info['which_flow'])=="0" else "for_corporate"
+
+        whose_ur_manager=json.loads(get_capex_flow_info['approver'])[0].split("#")[1]
         request.data["capex_current_at"] = whose_ur_manager
         request.data["capex_status"] = capex_wf_status[0]
-        request.data["flow_type"] = d
+        request.data["flow_type"] = which_flow
         request.data["capex_raised_by"] = request.data["raised_by"]
         serializers = Capex1Serializer(data=request.data)
 
@@ -523,7 +520,6 @@ def execute_sql(sql):
             dict(zip([col[0] for col in cursor.description], row)) for row in results
         ]
     return rows
-
 
 def put_execute_sql(sql, obj_data, capex_current_at, capex_status, id_value):
     with connection.cursor() as cursor:
@@ -861,81 +857,97 @@ capex_wf_status = {
     4: "ASK FOR JUSTIFICATION",
 }
 
-def dept_hod_for_corporate(code):
-    counter = 0
-    max_iterations = 20
-    a=code
+# def dept_hod_for_corporate(code):
+#     counter = 0
+#     max_iterations = 20
+#     a=code
     
-    while True:
-        counter += 1
-        if counter > max_iterations:
-            a=False
-            break
-        query1 = execute_sql("select emp_no employee_mancode ,manager_code manager_mancode from user_management um where emp_no ='{}';".format(a))
-        coll=[]
-        #15604 AM
-        query2 = execute_sql("select emp_no manager_code  from user_management um1 where manager_code  like '15604';")
-        for code in query2:
-            coll.append(code['manager_code'])
-        if query1[0]['manager_mancode'] in coll:
-            a=(query1[0]['manager_mancode'])
-            break;
-        else:
-            a=query1[0]['manager_mancode']
-    return a
+#     while True:
+#         counter += 1
+#         if counter > max_iterations:
+#             a=False
+#             break
+#         query1 = execute_sql("select emp_no employee_mancode ,manager_code manager_mancode from user_management um where emp_no ='{}';".format(a))
+#         coll=[]
+#         #15604 AM
+#         query2 = execute_sql("select emp_no manager_code  from user_management um1 where manager_code  like '15604';")
+#         for code in query2:
+#             coll.append(code['manager_code'])
+#         if query1[0]['manager_mancode'] in coll:
+#             a=(query1[0]['manager_mancode'])
+#             break;
+#         else:
+#             a=query1[0]['manager_mancode']
+#     return a
         
-def dept_hod_for_plant(code):
-    counter = 0
-    max_iterations = 10
+# def dept_hod_for_plant(code):
+#     counter = 0
+#     max_iterations = 10
     
-    a=code
-    while True:
-        counter += 1
-        if counter > max_iterations:
-            a=False
-            break
+#     a=code
+#     while True:
+#         counter += 1
+#         if counter > max_iterations:
+#             a=False
+#             break
             
-        query1 = execute_sql("select emp_no employee_mancode ,manager_code manager_mancode from user_management um where emp_no ='{}';".format(a))
-        coll=[]
-        # 00280 KK
-        query2 = execute_sql("select  emp_no manager_code  from user_management um1 where manager_code  like '00280';")
+#         query1 = execute_sql("select emp_no employee_mancode ,manager_code manager_mancode from user_management um where emp_no ='{}';".format(a))
+#         coll=[]
+#         # 00280 KK
+#         query2 = execute_sql("select  emp_no manager_code  from user_management um1 where manager_code  like '00280';")
         
-        for code in query2:
-            coll.append(code['manager_code'])
+#         for code in query2:
+#             coll.append(code['manager_code'])
             
-        if query1[0]['manager_mancode'] in coll:
-            a=(query1[0]['manager_mancode'])
-            break;
-        else:
-            a=query1[0]['manager_mancode']
-    return a
+#         if query1[0]['manager_mancode'] in coll:
+#             a=(query1[0]['manager_mancode'])
+#             break;
+#         else:
+#             a=query1[0]['manager_mancode']
+#     return a
 
-def new_wf_for_corporate(fcode):
-    try:
-        def user_info(code):
-            return execute_sql("""SELECT CONCAT(first_name,' ', last_name,'#',emp_no ) FROM user_management um WHERE emp_no ='{}';""".format(code))[0]['concat']
-        manager=dept_hod_for_corporate(fcode)
-        if manager:
-            val=[{'index_0':user_info(fcode),'index_1':user_info(manager),'index_2':user_info("00645"),'index_3':user_info("15604"),}]
-            return val
-        return val
-    except Exception as e:
-        print(e,"eorororor")
+# def new_wf_for_corporate(fcode):
+#     try:
+#         def user_info(code):
+#             return execute_sql("""SELECT CONCAT(first_name,' ', last_name,'#',emp_no ) FROM user_management um WHERE emp_no ='{}';""".format(code))[0]['concat']
+#         manager=dept_hod_for_corporate(fcode)
+#         if manager:
+#             val=[{'index_0':user_info(fcode),'index_1':user_info(manager),'index_2':user_info("00645"),'index_3':user_info("15604"),}]
+#             return val
+#         return val
+#     except Exception as e:
+#         print(e,"eorororor")
 
-def new_wf_for_plant(fcode):
-    try:
-        def user_info(code):
-            return execute_sql("""SELECT CONCAT(first_name,' ', last_name,'#',emp_no ) FROM user_management um WHERE emp_no ='{}';""".format(code))[0]['concat']
+# def new_wf_for_plant(fcode):
+#     try:
+#         def user_info(code):
+#             return execute_sql("""SELECT CONCAT(first_name,' ', last_name,'#',emp_no ) FROM user_management um WHERE emp_no ='{}';""".format(code))[0]['concat']
 
-        val=""
+#         val=""
         
-        manager=dept_hod_for_plant(fcode)
-        if manager:
-            val=[{'index_0':user_info(fcode),'index_1':user_info(manager),'index_2':user_info("00280"),'index_3':user_info("00645"),'index_4':user_info("15604"),}]
-            return val
-        else:
-            val=False
-            return val
+#         manager=dept_hod_for_plant(fcode)
+#         if manager:
+#             val=[{'index_0':user_info(fcode),'index_1':user_info(manager),'index_2':user_info("00280"),'index_3':user_info("00645"),'index_4':user_info("15604"),}]
+#             return val
+#         else:
+#             val=False
+#             return val
         
-    except Exception as e:
-        print(e,"eorororor")
+#     except Exception as e:
+#         print(e,"eorororor")
+
+def capex_wf_approvers(department):
+    return json.loads( execute_sql("select approver from capex_workflow cw where department like '%{}%';".format(department))[0]['approver'])
+# print(capex_wf_approvers("INFORMATION TECHNOLOGY"))
+
+@api_view(["GET"])
+def get_list_of_user_for_capex_approver(request):
+    query = """SELECT DISTINCT CONCAT(manager, '#', manager_code) AS name FROM user_management WHERE user_status = true AND manager_code NOT LIKE '%F%';"""
+    with connection.cursor() as cursor:
+        cursor.execute(query)
+        results = cursor.fetchall()
+        rows = [
+            dict(zip([col[0] for col in cursor.description], row)) for row in results
+        ]
+    return Response(rows)
+

@@ -91,3 +91,5 @@ class UploadBudget(models.Model):
 
     class Meta:
         db_table = "upload_budget"
+
+

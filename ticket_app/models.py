@@ -11,7 +11,6 @@ def upload_path(instance, filename):
 
 class TicketSystemModel(models.Model):
     id = models.UUIDField(default=uuid.uuid4, editable=True)
-    # id = models.UUIDField(null=True)
     requester_emp_no = models.CharField(max_length=20, null=True)
     ticket_no = models.AutoField(primary_key=True)
     tkt_title = models.CharField(max_length=500, null=True)

@@ -6,7 +6,7 @@ from capex_app.views import (
     get_by_budget_id,
     create_new_capex,
     get_all_capex_data,
-    update_capex,md_approval_on_mail
+    update_capex,md_approval_on_mail,get_list_of_user_for_capex_approver
 )
 
 urlpatterns = [
@@ -17,5 +17,6 @@ urlpatterns = [
     path("data-capex/<uuid:id>/", get_by_capex_id, name="get-by-capex-id"),
     path("create/", create_new_capex, name="create"),
     path("update/only/", update_capex, name="update-capex"),
-    path('md/approval/mail/',md_approval_on_mail,name='md_approval_on_mail')
+    path('md/approval/mail/',md_approval_on_mail,name='md-approval-on-mail'),
+    path('user/list/wf',get_list_of_user_for_capex_approver,name='get-list-of-user-for-capex-approver')
 ]

@@ -5,18 +5,11 @@ import uuid
 
 
 class userManagementSerializer(serializers.ModelSerializer):
-    len_module_permission = serializers.SerializerMethodField()
 
     class Meta:
         model = UserManagement
         fields = "__all__"
         # exclude=["id"]
-
-    def get_len_module_permission(self, object):
-        if len(object.module_permission):
-            return len(object.module_permission)
-        else:
-            return 0
 
     # def create(self,object):
     #     return True

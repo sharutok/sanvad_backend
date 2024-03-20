@@ -279,7 +279,7 @@ def user_permission_dynamic_values(request):
 @api_view(["GET"])
 def get_list_of_managers_based_on_department(request):
     department = request.GET["department"]
-    query = """select concat(first_name,' ',last_name) name from user_management um where um.user_status =true"""
+    query = """select distinct (manager) name from user_management um where um.user_status =true order by manager;"""
     with connection.cursor() as cursor:
         cursor.execute(query)
         results = cursor.fetchall()
