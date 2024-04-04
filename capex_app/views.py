@@ -1,3 +1,5 @@
+from docx import Document
+from docx2pdf import convert
 import json
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -826,29 +828,6 @@ notify_md_return_meassage='''
 '''
 
 
-
-# user_flow_for_corporate = """
-#                     select concat(um1.first_name ,' ',um1.last_name ,'#',um1.emp_no)index_0,bc.index_1,bc.index_2,bc.index_3 from user_management um1 left join 
-#                         (select 			emp_no,
-#                         concat( first_name,' ', last_name,'#',emp_no ) as index_1 ,
-#                         (select concat( first_name,' ', last_name,'#',emp_no ) from user_management um where emp_no ='00645') index_2,
-#                         (select concat( first_name,' ', last_name,'#',emp_no ) from user_management um where emp_no ='15604') index_3
-#                         from
-#                         user_management um
-#                         where
-#                         um.manager_code = '15604') bc on um1.manager_code =bc.emp_no where  um1.emp_no =''"""
-
-# user_flow_for_plant = """
-#                      select concat(um1.first_name ,' ',um1.last_name ,'#',um1.emp_no) index_0,index_1,index_2,index_3,index_4 from user_management um1 left join 
-#                   ( select
-#                     emp_no,
-#                     concat( first_name,' ', last_name,'#',emp_no )index_1 ,
-#                     concat(manager,'#',manager_code)index_2,
-#                     (select concat( first_name,' ', last_name,'#',emp_no ) from user_management um where emp_no ='00645') index_3,
-#                     (select concat( first_name,' ', last_name,'#',emp_no ) from user_management um where emp_no ='15604') index_4
-#                     from user_management um where manager_code ='00280' )bc on um1.manager_code =bc.emp_no where um1.emp_no ='{}' ;"""
-
-
 capex_wf_status = {
     0: "INPROGRESS",
     1: "APPROVED",
@@ -857,88 +836,8 @@ capex_wf_status = {
     4: "ASK FOR JUSTIFICATION",
 }
 
-# def dept_hod_for_corporate(code):
-#     counter = 0
-#     max_iterations = 20
-#     a=code
-    
-#     while True:
-#         counter += 1
-#         if counter > max_iterations:
-#             a=False
-#             break
-#         query1 = execute_sql("select emp_no employee_mancode ,manager_code manager_mancode from user_management um where emp_no ='{}';".format(a))
-#         coll=[]
-#         #15604 AM
-#         query2 = execute_sql("select emp_no manager_code  from user_management um1 where manager_code  like '15604';")
-#         for code in query2:
-#             coll.append(code['manager_code'])
-#         if query1[0]['manager_mancode'] in coll:
-#             a=(query1[0]['manager_mancode'])
-#             break;
-#         else:
-#             a=query1[0]['manager_mancode']
-#     return a
-        
-# def dept_hod_for_plant(code):
-#     counter = 0
-#     max_iterations = 10
-    
-#     a=code
-#     while True:
-#         counter += 1
-#         if counter > max_iterations:
-#             a=False
-#             break
-            
-#         query1 = execute_sql("select emp_no employee_mancode ,manager_code manager_mancode from user_management um where emp_no ='{}';".format(a))
-#         coll=[]
-#         # 00280 KK
-#         query2 = execute_sql("select  emp_no manager_code  from user_management um1 where manager_code  like '00280';")
-        
-#         for code in query2:
-#             coll.append(code['manager_code'])
-            
-#         if query1[0]['manager_mancode'] in coll:
-#             a=(query1[0]['manager_mancode'])
-#             break;
-#         else:
-#             a=query1[0]['manager_mancode']
-#     return a
-
-# def new_wf_for_corporate(fcode):
-#     try:
-#         def user_info(code):
-#             return execute_sql("""SELECT CONCAT(first_name,' ', last_name,'#',emp_no ) FROM user_management um WHERE emp_no ='{}';""".format(code))[0]['concat']
-#         manager=dept_hod_for_corporate(fcode)
-#         if manager:
-#             val=[{'index_0':user_info(fcode),'index_1':user_info(manager),'index_2':user_info("00645"),'index_3':user_info("15604"),}]
-#             return val
-#         return val
-#     except Exception as e:
-#         print(e,"eorororor")
-
-# def new_wf_for_plant(fcode):
-#     try:
-#         def user_info(code):
-#             return execute_sql("""SELECT CONCAT(first_name,' ', last_name,'#',emp_no ) FROM user_management um WHERE emp_no ='{}';""".format(code))[0]['concat']
-
-#         val=""
-        
-#         manager=dept_hod_for_plant(fcode)
-#         if manager:
-#             val=[{'index_0':user_info(fcode),'index_1':user_info(manager),'index_2':user_info("00280"),'index_3':user_info("00645"),'index_4':user_info("15604"),}]
-#             return val
-#         else:
-#             val=False
-#             return val
-        
-#     except Exception as e:
-#         print(e,"eorororor")
-
 def capex_wf_approvers(department):
     return json.loads( execute_sql("select approver from capex_workflow cw where department like '%{}%';".format(department))[0]['approver'])
-# print(capex_wf_approvers("INFORMATION TECHNOLOGY"))
 
 @api_view(["GET"])
 def get_list_of_user_for_capex_approver(request):
@@ -951,3 +850,91 @@ def get_list_of_user_for_capex_approver(request):
         ]
     return Response(rows)
 
+
+@api_view(["GET"])
+def generate_capex_final_pdf(request):
+    try:
+        budget_id = request.GET["budget_id"]
+        capex_id = request.GET["capex_id"]
+        raised_by=request.GET["raised_by"]
+        budget_data=execute_sql("select * from capex_excel_master where id='{}'".format(budget_id))
+        capex_data=execute_sql("select * from capex_data_master cdm where id='{}'".format(capex_id))
+        approval_flow=json.loads(capex_data[0]['approval_flow'])
+
+        replacements={
+            '<<Capex_Id>>':str(capex_data[0]['id']),
+            '<<Date>>':"23-06-2023",
+            '<<Purpose_Description>>':budget_data[0]['purpose_description'].title(),
+            '<<location>>':budget_data[0]['plant'].title(),
+            '<<Capex_Group>>':capex_data[0]['flow_type'].title(),
+            '<<Asset_Description>>':budget_data[0]['asset_description'].title(),
+            '<<Capex_Raised_By>>':raised_by.lower(),
+            '<<Flow_Type>>':str(capex_data[0]['flow_type'])[4:].title(),
+            '<<Dept>>':budget_data[0]['dept'].lower(),
+            '<<Site_Delivery_Date>>':str(capex_data[0]['site_delivery_date'])[0:10],
+            '<<Nature_Of_Requirement>>':capex_data[0]['nature_of_requirement'].title(),
+            '<<Purpose>>':capex_data[0]['purpose'].title(),
+            '<<Capex_For_Which_Department>>':capex_data[0]['capex_for_which_department'],
+            '<<Budget_Type>>':capex_data[0]['budget_type'].lower(),
+            '<<Total_Cost>>':str(capex_data[0]['total_cost']),
+            '<<Comment1>>':capex_data[0]['comment1'],
+            '<<Comment3>>':capex_data[0]['comment3'],
+            '<<approver1_name>>':approval_flow[0]['user_name'],
+            '<<approver1_comment>>':approval_flow[0]['comments'],
+            '<<approver1_status>>':capex_wf_status[int( approval_flow[0]['status'])+1],
+            '<<approver1_date>>':datetime.strptime(str(approval_flow[0]['time']), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y"),
+            '<<approver2_name>>':approval_flow[1]['user_name'],
+            '<<approver2_comment>>':approval_flow[1]['comments'],
+            '<<approver2_status>>':capex_wf_status[int( approval_flow[1]['status'])+1],
+            '<<approver2_date>>':datetime.strptime(str(approval_flow[1]['time']), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y"),
+            '<<approver3_name>>':approval_flow[2]['user_name'],
+            '<<approver3_comment>>':approval_flow[2]['comments'],
+            '<<approver3_status>>':capex_wf_status[int( approval_flow[2]['status'])+1],
+            '<<approver3_date>>':datetime.strptime(str(approval_flow[2]['time']), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y"),
+            '<<approver4_name>>': approval_flow[3].get('user_name') if len(approval_flow) > 3 else "",
+            '<<approver4_comment>>': approval_flow[3].get('comments') if len(approval_flow) > 3 else "",
+            '<<approver4_status>>': capex_wf_status[int(approval_flow[3].get('status'))+1] if len(approval_flow) > 3 else "",
+            '<<approver4_date>>': datetime.strptime(str(approval_flow[3].get('time')), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y") if len(approval_flow) > 3 else "",
+            }
+        
+        
+        def replace_text_in_docx(docx_file, replacements):
+            doc = Document(docx_file)
+
+            for paragraph in doc.paragraphs:
+                for key, value in replacements.items():
+                    if key in paragraph.text:
+                        paragraph.text = paragraph.text.replace(key, value)
+
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for paragraph in cell.paragraphs:
+                            for key, value in replacements.items():
+                                if key in paragraph.text:
+                                    paragraph.text = paragraph.text.replace(key, value)
+            return doc
+
+        docx_file = 'CAPEX TEMPLATE.docx'
+        doc = replace_text_in_docx(docx_file, replacements)
+        doc.save('modified_template.docx')
+        convert('modified_template.docx', 'capex.pdf')
+
+        with open('capex.pdf', 'rb') as pdf_file:
+            response = HttpResponse(pdf_file.read(), content_type='application/pdf')
+            response['Content-Disposition'] = 'inline; filename=output.pdf'
+            os.remove('CAPEX TEMPLATE.docx')
+            os.remove('modified_template.docx')
+            return response
+
+        
+        return Response({"mess":"ok"})
+    except Exception as e:
+        return Response({"mess":e})
+        
+    
+
+    
+    
+    
+    
