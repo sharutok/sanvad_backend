@@ -863,7 +863,7 @@ def generate_capex_final_pdf(request):
 
         replacements={
             '<<Capex_Id>>':str(capex_data[0]['id']),
-            '<<Date>>':"23-06-2023",
+            '<<Date>>':datetime.now().strftime('%d-%m-%Y'),
             '<<Purpose_Description>>':budget_data[0]['purpose_description'].title(),
             '<<location>>':budget_data[0]['plant'].title(),
             '<<Capex_Group>>':capex_data[0]['flow_type'].title(),
@@ -923,7 +923,6 @@ def generate_capex_final_pdf(request):
         with open('capex.pdf', 'rb') as pdf_file:
             response = HttpResponse(pdf_file.read(), content_type='application/pdf')
             response['Content-Disposition'] = 'inline; filename=output.pdf'
-            os.remove('CAPEX TEMPLATE.docx')
             os.remove('modified_template.docx')
             return response
 
