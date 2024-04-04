@@ -1,5 +1,5 @@
-from docx import Document
-from docx2pdf import convert
+# from docx import Document
+# from docx2pdf import convert
 import json
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -854,86 +854,78 @@ def get_list_of_user_for_capex_approver(request):
 @api_view(["GET"])
 def generate_capex_final_pdf(request):
     try:
-        budget_id = request.GET["budget_id"]
-        capex_id = request.GET["capex_id"]
-        raised_by=request.GET["raised_by"]
-        budget_data=execute_sql("select * from capex_excel_master where id='{}'".format(budget_id))
-        capex_data=execute_sql("select * from capex_data_master cdm where id='{}'".format(capex_id))
-        approval_flow=json.loads(capex_data[0]['approval_flow'])
+    #     budget_id = request.GET["budget_id"]
+    #     capex_id = request.GET["capex_id"]
+    #     raised_by=request.GET["raised_by"]
+    #     budget_data=execute_sql("select * from capex_excel_master where id='{}'".format(budget_id))
+    #     capex_data=execute_sql("select * from capex_data_master cdm where id='{}'".format(capex_id))
+    #     approval_flow=json.loads(capex_data[0]['approval_flow'])
 
-        replacements={
-            '<<Capex_Id>>':str(capex_data[0]['id']),
-            '<<Date>>':datetime.now().strftime('%d-%m-%Y'),
-            '<<Purpose_Description>>':budget_data[0]['purpose_description'].title(),
-            '<<location>>':budget_data[0]['plant'].title(),
-            '<<Capex_Group>>':capex_data[0]['flow_type'].title(),
-            '<<Asset_Description>>':budget_data[0]['asset_description'].title(),
-            '<<Capex_Raised_By>>':raised_by.lower(),
-            '<<Flow_Type>>':str(capex_data[0]['flow_type'])[4:].title(),
-            '<<Dept>>':budget_data[0]['dept'].lower(),
-            '<<Site_Delivery_Date>>':str(capex_data[0]['site_delivery_date'])[0:10],
-            '<<Nature_Of_Requirement>>':capex_data[0]['nature_of_requirement'].title(),
-            '<<Purpose>>':capex_data[0]['purpose'].title(),
-            '<<Capex_For_Which_Department>>':capex_data[0]['capex_for_which_department'],
-            '<<Budget_Type>>':capex_data[0]['budget_type'].lower() if capex_data[0]['budget_type'] else "Non Budgeted" ,
-            '<<Total_Cost>>':str(capex_data[0]['total_cost']),
-            '<<Comment1>>':capex_data[0]['comment1'],
-            '<<Comment3>>':capex_data[0]['comment3'],
-            '<<approver1_name>>':str(approval_flow[0]['user_name']).title(),
-            '<<approver1_comment>>':approval_flow[0]['comments'],
-            '<<approver1_status>>':str(capex_wf_status[int( approval_flow[0]['status'])+1]).title(),
-            '<<approver1_date>>':datetime.strptime(str(approval_flow[0]['time']), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y"),
-            '<<approver2_name>>':str(approval_flow[1]['user_name']).title(),
-            '<<approver2_comment>>':approval_flow[1]['comments'],
-            '<<approver2_status>>':str(capex_wf_status[int( approval_flow[1]['status'])+1]).title(),
-            '<<approver2_date>>':datetime.strptime(str(approval_flow[1]['time']), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y"),
-            '<<approver3_name>>':str(approval_flow[2]['user_name']).title(),
-            '<<approver3_comment>>':approval_flow[2]['comments'],
-            '<<approver3_status>>':str(capex_wf_status[int( approval_flow[2]['status'])+1]).title(),
-            '<<approver3_date>>':datetime.strptime(str(approval_flow[2]['time']), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y"),
-            '<<approver4_name>>': str(approval_flow[3].get('user_name')).title() if len(approval_flow) > 3 else "",
-            '<<approver4_comment>>': approval_flow[3].get('comments') if len(approval_flow) > 3 else "",
-            '<<approver4_status>>': str(capex_wf_status[int(approval_flow[3].get('status'))+1]).title() if len(approval_flow) > 3 else "",
-            '<<approver4_date>>': datetime.strptime(str(approval_flow[3].get('time')), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y") if len(approval_flow) > 3 else "",
-            }
+    #     replacements={
+    #         '<<Capex_Id>>':str(capex_data[0]['id']),
+    #         '<<Date>>':datetime.now().strftime('%d-%m-%Y'),
+    #         '<<Purpose_Description>>':budget_data[0]['purpose_description'].title(),
+    #         '<<location>>':budget_data[0]['plant'].title(),
+    #         '<<Capex_Group>>':capex_data[0]['flow_type'].title(),
+    #         '<<Asset_Description>>':budget_data[0]['asset_description'].title(),
+    #         '<<Capex_Raised_By>>':raised_by.lower(),
+    #         '<<Flow_Type>>':str(capex_data[0]['flow_type'])[4:].title(),
+    #         '<<Dept>>':budget_data[0]['dept'].lower(),
+    #         '<<Site_Delivery_Date>>':str(capex_data[0]['site_delivery_date'])[0:10],
+    #         '<<Nature_Of_Requirement>>':capex_data[0]['nature_of_requirement'].title(),
+    #         '<<Purpose>>':capex_data[0]['purpose'].title(),
+    #         '<<Capex_For_Which_Department>>':capex_data[0]['capex_for_which_department'],
+    #         '<<Budget_Type>>':capex_data[0]['budget_type'].lower() if capex_data[0]['budget_type'] else "Non Budgeted" ,
+    #         '<<Total_Cost>>':str(capex_data[0]['total_cost']),
+    #         '<<Comment1>>':capex_data[0]['comment1'],
+    #         '<<Comment3>>':capex_data[0]['comment3'],
+    #         '<<approver1_name>>':str(approval_flow[0]['user_name']).title(),
+    #         '<<approver1_comment>>':approval_flow[0]['comments'],
+    #         '<<approver1_status>>':str(capex_wf_status[int( approval_flow[0]['status'])+1]).title(),
+    #         '<<approver1_date>>':datetime.strptime(str(approval_flow[0]['time']), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y"),
+    #         '<<approver2_name>>':str(approval_flow[1]['user_name']).title(),
+    #         '<<approver2_comment>>':approval_flow[1]['comments'],
+    #         '<<approver2_status>>':str(capex_wf_status[int( approval_flow[1]['status'])+1]).title(),
+    #         '<<approver2_date>>':datetime.strptime(str(approval_flow[1]['time']), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y"),
+    #         '<<approver3_name>>':str(approval_flow[2]['user_name']).title(),
+    #         '<<approver3_comment>>':approval_flow[2]['comments'],
+    #         '<<approver3_status>>':str(capex_wf_status[int( approval_flow[2]['status'])+1]).title(),
+    #         '<<approver3_date>>':datetime.strptime(str(approval_flow[2]['time']), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y"),
+    #         '<<approver4_name>>': str(approval_flow[3].get('user_name')).title() if len(approval_flow) > 3 else "",
+    #         '<<approver4_comment>>': approval_flow[3].get('comments') if len(approval_flow) > 3 else "",
+    #         '<<approver4_status>>': str(capex_wf_status[int(approval_flow[3].get('status'))+1]).title() if len(approval_flow) > 3 else "",
+    #         '<<approver4_date>>': datetime.strptime(str(approval_flow[3].get('time')), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y") if len(approval_flow) > 3 else "",
+    #         }
         
         
-        def replace_text_in_docx(docx_file, replacements):
-            doc = Document(docx_file)
+    #     def replace_text_in_docx(docx_file, replacements):
+    #         doc = Document(docx_file)
 
-            for paragraph in doc.paragraphs:
-                for key, value in replacements.items():
-                    if key in paragraph.text:
-                        paragraph.text = paragraph.text.replace(key, value)
+    #         for paragraph in doc.paragraphs:
+    #             for key, value in replacements.items():
+    #                 if key in paragraph.text:
+    #                     paragraph.text = paragraph.text.replace(key, value)
 
-            for table in doc.tables:
-                for row in table.rows:
-                    for cell in row.cells:
-                        for paragraph in cell.paragraphs:
-                            for key, value in replacements.items():
-                                if key in paragraph.text:
-                                    paragraph.text = paragraph.text.replace(key, value)
-            return doc
+    #         for table in doc.tables:
+    #             for row in table.rows:
+    #                 for cell in row.cells:
+    #                     for paragraph in cell.paragraphs:
+    #                         for key, value in replacements.items():
+    #                             if key in paragraph.text:
+    #                                 paragraph.text = paragraph.text.replace(key, value)
+    #         return doc
 
-        docx_file = 'CAPEX TEMPLATE.docx'
-        doc = replace_text_in_docx(docx_file, replacements)
-        doc.save('modified_template.docx')
-        convert('modified_template.docx', 'capex.pdf')
+    #     docx_file = 'CAPEX TEMPLATE.docx'
+    #     doc = replace_text_in_docx(docx_file, replacements)
+    #     doc.save('modified_template.docx')
+    #     convert('modified_template.docx', 'capex.pdf')
 
-        with open('capex.pdf', 'rb') as pdf_file:
-            response = HttpResponse(pdf_file.read(), content_type='application/pdf')
-            response['Content-Disposition'] = 'inline; filename=output.pdf'
-            os.remove('modified_template.docx')
-            return response
-
-        
+    #     with open('capex.pdf', 'rb') as pdf_file:
+    #         response = HttpResponse(pdf_file.read(), content_type='application/pdf')
+    #         response['Content-Disposition'] = 'inline; filename=output.pdf'
+    #         os.remove('modified_template.docx')
+    #         return response        
         return Response({"mess":"ok"})
     except Exception as e:
         return Response({"mess":e})
         
-    
-
-    
-    
-    
-    
