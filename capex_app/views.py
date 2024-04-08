@@ -1,5 +1,4 @@
-# from docx import Document
-# from docx2pdf import convert
+import pdfkit
 import json
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -141,30 +140,31 @@ def get_all_budget_data(request):
     result_page = paginator.paginate_queryset(rows, request)
     return paginator.get_paginated_response(result_page)
 
-# GET ALL CAPEX DATA 
+
+# GET ALL CAPEX DATA
 @api_view(["GET"])
 def get_all_capex_data(request):
     try:
         search_query = request.GET["search"]
-        user_details=user_details_from_emp_id(request.GET["woosee"])
-        department=""
-        woosee=""
-        view=request.GET['view']
+        user_details = user_details_from_emp_id(request.GET["woosee"])
+        department = ""
+        woosee = ""
+        view = request.GET["view"]
 
         # PERMISSION ACCORDING TO VIEW
         match view:
-        # CAPEX DATA
+            # CAPEX DATA
             case "approve_capex_view":
-                woosee=request.GET["woosee"]
-                department=user_details['department']
-        # RESPECTIVE DEPARTMENT CAPEX
+                woosee = request.GET["woosee"]
+                department = user_details["department"]
+            # RESPECTIVE DEPARTMENT CAPEX
             case "dept_capex_view":
-                department=user_details['department']
-                woosee=""
-        # ADMIN VIEW ALL CAPEX
+                department = user_details["department"]
+                woosee = ""
+            # ADMIN VIEW ALL CAPEX
             case "admin_capex_view":
-                woosee=""
-                department=""
+                woosee = ""
+                department = ""
             case _:
                 print("nope....")
 
@@ -196,20 +196,27 @@ def get_all_capex_data(request):
                             where 
                             cdm.delete_flag=false and ((cdm.capex_raised_by like '%{}%' or cdm.capex_current_at like '%{}%' and um1.department like '%{}%') and 
                             (cem.budget_no like '%{}%' or cem.purpose_code like '%{}%' or cdm.return_on_investment like '%{}%')) ;""".format(
-                            woosee, woosee,department, search_query, search_query, search_query,search_query
+            woosee,
+            woosee,
+            department,
+            search_query,
+            search_query,
+            search_query,
+            search_query,
         )
         with connection.cursor() as cursor:
             cursor.execute(raw_sql_query)
             results = cursor.fetchall()
             rows = [
-                dict(zip([col[0] for col in cursor.description], row)) for row in results
+                dict(zip([col[0] for col in cursor.description], row))
+                for row in results
             ]
         paginator = PageNumberPagination()
         paginator.page_size = 10
         result_page = paginator.paginate_queryset(rows, request)
         return paginator.get_paginated_response(result_page)
     except Exception as e:
-        print("error in get_all_capex_data",e)
+        print("error in get_all_capex_data", e)
         return Response({"status": status.HTTP_400_BAD_REQUEST})
 
 
@@ -316,17 +323,19 @@ def get_by_capex_id(request, id):
             def check_condition_for_corporate(approver_status):
                 # approved
                 if approver_status == "0":
-                    if serializers.data["capex_current_at"]=='15604':
+                    if serializers.data["capex_current_at"] == "15604":
                         return [None, capex_wf_status[3]]
-                    else:    
+                    else:
                         raised_by = serializers.data["capex_raised_by"]
                         approved_by = request.data["user_no"]
 
-                        data=capex_wf_approvers(user_details_from_emp_id(raised_by)["department"])
+                        data = capex_wf_approvers(
+                            user_details_from_emp_id(raised_by)["department"]
+                        )
                         row = []
                         for value in data:
                             row.append(value.split("#")[1])
-                        
+
                         capex_current_at = row[row.index(str(approved_by)) + 1]
                         return [capex_current_at, capex_wf_status[0]]
 
@@ -338,9 +347,11 @@ def get_by_capex_id(request, id):
                 if approver_status == "3":
                     justification_by = request.data["user_no"]
                     raised_by = serializers.data["capex_raised_by"]
-                    
+
                     row = []
-                    data=capex_wf_approvers(user_details_from_emp_id(raised_by)["department"])
+                    data = capex_wf_approvers(
+                        user_details_from_emp_id(raised_by)["department"]
+                    )
                     row = []
                     for value in data:
                         row.append(value.split("#")[1])
@@ -354,13 +365,15 @@ def get_by_capex_id(request, id):
             def check_condition_for_plant(approver_status):
                 # approved
                 if approver_status == "0":
-                    if serializers.data["capex_current_at"]=='15604':
+                    if serializers.data["capex_current_at"] == "15604":
                         return [None, capex_wf_status[3]]
-                    else:    
+                    else:
                         raised_by = serializers.data["capex_raised_by"]
                         approved_by = request.data["user_no"]
                         row = []
-                        data=capex_wf_approvers(user_details_from_emp_id(raised_by)["department"])
+                        data = capex_wf_approvers(
+                            user_details_from_emp_id(raised_by)["department"]
+                        )
                         row = []
                         for value in data:
                             row.append(value.split("#")[1])
@@ -376,7 +389,9 @@ def get_by_capex_id(request, id):
                     justification_by = request.data["user_no"]
                     raised_by = serializers.data["capex_raised_by"]
                     row = []
-                    data=capex_wf_approvers(user_details_from_emp_id(raised_by)["department"])
+                    data = capex_wf_approvers(
+                        user_details_from_emp_id(raised_by)["department"]
+                    )
                     row = []
                     for value in data:
                         row.append(value.split("#")[1])
@@ -400,8 +415,8 @@ def get_by_capex_id(request, id):
                         value[1],
                         request.data["capex_id"],
                     )
-                    approve_mail_ready_data(serializers,value,obj_data)
-                    
+                    approve_mail_ready_data(serializers, value, obj_data)
+
                 #### FOR CORPORATE
                 case "for_corporate":
                     value = check_condition_for_corporate(obj_data["status"])
@@ -414,88 +429,112 @@ def get_by_capex_id(request, id):
                         value[1],
                         request.data["capex_id"],
                     )
-                    approve_mail_ready_data(serializers,value,obj_data)
-                    
-            return Response({"data": serializers.data, "status_code": status.HTTP_200_OK})
+                    approve_mail_ready_data(serializers, value, obj_data)
+
+            return Response(
+                {"data": serializers.data, "status_code": status.HTTP_200_OK}
+            )
 
 
-def create_mail_ready_data(serializers,capex_current_at):    
+def create_mail_ready_data(serializers, capex_current_at):
     try:
-        user_info=user_details_from_emp_id(serializers.data["capex_raised_by"])
-        user_name="{} {}".format(user_info["first_name"].capitalize(), user_info["last_name"].capitalize())
-        user_department=user_info['department']
-        user_email_id=user_info['email_id']
+        user_info = user_details_from_emp_id(serializers.data["capex_raised_by"])
+        user_name = "{} {}".format(
+            user_info["first_name"].capitalize(), user_info["last_name"].capitalize()
+        )
+        user_department = user_info["department"]
+        user_email_id = user_info["email_id"]
 
-        next_approver=user_details_from_emp_id(capex_current_at)
-        next_approver_email_id=next_approver['email_id']
-        next_approver_user_name="{} {}".format(next_approver["first_name"].capitalize(), next_approver["last_name"].capitalize())
-        
-        data={
-        'capex_status':"Raised",
-        'assignees_comment':'Please Take Action',
-        'nature_of_requirement':serializers.data["nature_of_requirement"],
-        'raised_by':user_name,
-        'department':user_department,
-        'capex_raised_date':serializers.data["created_at"],
-        'total_cost':serializers.data["total_cost"],
-        'user_email_id':user_email_id,
-        'next_approver_emp_id':capex_current_at,
-        'next_approver_email_id':next_approver_email_id,
-        'next_approver_user_name':next_approver_user_name,
-        'capex_id':'',
-        'budget_id':'',
-        'assignees_comment':'',
-        'approved_by':'',
-            }
+        next_approver = user_details_from_emp_id(capex_current_at)
+        next_approver_email_id = next_approver["email_id"]
+        next_approver_user_name = "{} {}".format(
+            next_approver["first_name"].capitalize(),
+            next_approver["last_name"].capitalize(),
+        )
+
+        data = {
+            "capex_status": "Raised",
+            "assignees_comment": "Please Take Action",
+            "nature_of_requirement": serializers.data["nature_of_requirement"],
+            "raised_by": user_name,
+            "department": user_department,
+            "capex_raised_date": serializers.data["created_at"],
+            "total_cost": serializers.data["total_cost"],
+            "user_email_id": user_email_id,
+            "next_approver_emp_id": capex_current_at,
+            "next_approver_email_id": next_approver_email_id,
+            "next_approver_user_name": next_approver_user_name,
+            "capex_id": "",
+            "budget_id": "",
+            "assignees_comment": "",
+            "approved_by": "",
+        }
         mail_confirmation(data)
     except Exception as e:
-        print("Error in create_mail_ready_data",e)
+        print("Error in create_mail_ready_data", e)
 
-def approve_mail_ready_data(serializers,value,obj_data):
-    
-    #check if user is md
-    user_info=user_details_from_emp_id(serializers.data["capex_raised_by"])
-    user_email_id=user_info['email_id']
-    
-    if obj_data['emp_id'] !='15604':
-        user_name="{} {}".format(user_info["first_name"].capitalize(), user_info["last_name"].capitalize())
-        user_department=user_info['department']
 
-        next_approver=user_details_from_emp_id(value[0])
-        next_approver_email_id=next_approver['email_id']
-        next_approver_user_name="{} {}".format(next_approver["first_name"].capitalize(), next_approver["last_name"].capitalize())
+def approve_mail_ready_data(serializers, value, obj_data):
 
-        data={
-        'capex_status':value[1],
-        'assignees_comment':obj_data['comments'],
-        'approved_by':obj_data["user_name"],
-        'nature_of_requirement':serializers.data["nature_of_requirement"],
-        'raised_by':user_name,
-        'department':user_department,
-        'capex_raised_date':serializers.data["created_at"],
-        'total_cost':serializers.data["total_cost"],
-        'user_email_id':user_email_id,
-        'next_approver_emp_id':value[0],
-        'next_approver_email_id':next_approver_email_id,
-        'next_approver_user_name':next_approver_user_name,
-        'capex_id':serializers.data["id"],
-        'budget_id':serializers.data["budget_id"]
+    # check if user is md
+    user_info = user_details_from_emp_id(serializers.data["capex_raised_by"])
+    user_email_id = user_info["email_id"]
+
+    if obj_data["emp_id"] != "15604":
+        user_name = "{} {}".format(
+            user_info["first_name"].capitalize(), user_info["last_name"].capitalize()
+        )
+        user_department = user_info["department"]
+
+        next_approver = user_details_from_emp_id(value[0])
+        next_approver_email_id = next_approver["email_id"]
+        next_approver_user_name = "{} {}".format(
+            next_approver["first_name"].capitalize(),
+            next_approver["last_name"].capitalize(),
+        )
+
+        data = {
+            "capex_status": value[1],
+            "assignees_comment": obj_data["comments"],
+            "approved_by": obj_data["user_name"],
+            "nature_of_requirement": serializers.data["nature_of_requirement"],
+            "raised_by": user_name,
+            "department": user_department,
+            "capex_raised_date": serializers.data["created_at"],
+            "total_cost": serializers.data["total_cost"],
+            "user_email_id": user_email_id,
+            "next_approver_emp_id": value[0],
+            "next_approver_email_id": next_approver_email_id,
+            "next_approver_user_name": next_approver_user_name,
+            "capex_id": serializers.data["id"],
+            "budget_id": serializers.data["budget_id"],
         }
         mail_confirmation(data)
     else:
-        capex_approved_mail_notification(serializers,user_email_id)
+        capex_approved_mail_notification(serializers, user_email_id)
+
 
 @api_view(["POST"])
 def create_new_capex(request):
     try:
         raised_by_emp = request.data["raised_by"]
-        data=execute_sql("select * from user_management um where emp_no='{}';".format(raised_by_emp))[0]
-        department=data['department']
-        
-        get_capex_flow_info=execute_sql("select * from capex_workflow cw where department like '%{}%';".format(department))[0]
-        which_flow="for_plant" if str(get_capex_flow_info['which_flow'])=="0" else "for_corporate"
+        data = execute_sql(
+            "select * from user_management um where emp_no='{}';".format(raised_by_emp)
+        )[0]
+        department = data["department"]
 
-        whose_ur_manager=json.loads(get_capex_flow_info['approver'])[0].split("#")[1]
+        get_capex_flow_info = execute_sql(
+            "select * from capex_workflow cw where department like '%{}%';".format(
+                department
+            )
+        )[0]
+        which_flow = (
+            "for_plant"
+            if str(get_capex_flow_info["which_flow"]) == "0"
+            else "for_corporate"
+        )
+
+        whose_ur_manager = json.loads(get_capex_flow_info["approver"])[0].split("#")[1]
         request.data["capex_current_at"] = whose_ur_manager
         request.data["capex_status"] = capex_wf_status[0]
         request.data["flow_type"] = which_flow
@@ -504,13 +543,13 @@ def create_new_capex(request):
 
         if serializers.is_valid():
             serializers.save()
-            create_mail_ready_data(serializers,capex_current_at=whose_ur_manager)
+            create_mail_ready_data(serializers, capex_current_at=whose_ur_manager)
             return Response({"mess": "created", "status": 200})
         else:
             print(serializers.errors)
             return Response({"error": serializers.errors, "status": 400})
     except Exception as e:
-        print("error in creating capex",e)
+        print("error in creating capex", e)
         return Response({"error": "e", "status": 400})
 
 
@@ -522,6 +561,7 @@ def execute_sql(sql):
             dict(zip([col[0] for col in cursor.description], row)) for row in results
         ]
     return rows
+
 
 def put_execute_sql(sql, obj_data, capex_current_at, capex_status, id_value):
     with connection.cursor() as cursor:
@@ -536,18 +576,22 @@ def capex_components_view_access(woosee, request):
         "submit_btn": False,
         "comments_box": False,
         "update_btn": False,
+        "field_to_form": False,
     }
     components["approval_status"] = (
         True if woosee != request["capex_raised_by"] else False
     )
     components["submit_btn"] = True if woosee == request["capex_current_at"] else False
-    components["comments_box"] = True if woosee == request["capex_current_at"] else False
+    components["comments_box"] = (
+        True if woosee == request["capex_current_at"] else False
+    )
     components["approval_status"] = (
         True if woosee == request["capex_current_at"] else False
     )
     components["update_btn"] = (
         True if request["capex_current_at"] == request["capex_raised_by"] else False
     )
+    components["field_to_form"] = True if request["capex_status"] == "CLOSED" else False
 
     return components
 
@@ -559,9 +603,9 @@ def get_capex_admin():
     return data
 
 
-def capex_approved_mail_notification(serializers,user_email_id):
+def capex_approved_mail_notification(serializers, user_email_id):
     try:
-        html='''
+        html = """
                   <!DOCTYPE html>
                 <html lang="en">  
                 <head>
@@ -599,49 +643,74 @@ def capex_approved_mail_notification(serializers,user_email_id):
                     <br />
                 </body>
                 </html>
-        '''.format(serializers.data["id"])
-        common_mail_template(html=html,subject="Adorhub - Capex Approval Notification",to_email=[user_email_id])
+        """.format(
+            serializers.data["id"]
+        )
+        common_mail_template(
+            html=html,
+            subject="Adorhub - Capex Approval Notification",
+            to_email=[user_email_id],
+        )
     except Exception as e:
-        print("error in capex_approved_mail_notification",e)
+        print("error in capex_approved_mail_notification", e)
 
 
 def mail_confirmation(data):
-    try: 
+    try:
         load_dotenv()
         from_email = os.getenv("SENDER_EMAIL")
-        to_email = data['next_approver_email_id']
+        to_email = data["next_approver_email_id"]
         smtp_server = os.getenv("SMTP_SERVER")
         smtp_port = os.getenv("SMTP_PORT")
         smtp_username = os.getenv("SMTP_USERNAME")
         smtp_password = os.getenv("SMTP_PASSWORD")
 
-        capex_id=data['capex_id']
-        budget_id=data['budget_id']
+        capex_id = data["capex_id"]
+        budget_id = data["budget_id"]
 
-        
-        for_md_only='''
+        for_md_only = """
         <div>
         <span>Click on the link below to Approve or Reject</span>
          <div style="display: flex; gap: 2px; margin-top:1rem;">
             <a href="{}/capex/md/approval/mail/?type=0&budget_id={}&capex_id={}">Approve</a>
             <a style="display: flex; gap: 2px; margin-left:1rem;" href="{}/capex/md/approval/mail/?type=1&budget_id={}&capex_id={}">Reject</a>
         </div>
-        </div>'''.format(os.getenv("CAPEX_API"),budget_id,capex_id,os.getenv("CAPEX_API"),budget_id,capex_id)
-        
-        for_others='''<div></div>'''
-        
-        approval_btn=for_md_only if data['next_approver_emp_id']=='15604' else for_others
+        </div>""".format(
+            os.getenv("CAPEX_API"),
+            budget_id,
+            capex_id,
+            os.getenv("CAPEX_API"),
+            budget_id,
+            capex_id,
+        )
 
+        for_others = """<div></div>"""
 
-        approved_by='''<div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+        approval_btn = (
+            for_md_only if data["next_approver_emp_id"] == "15604" else for_others
+        )
+
+        approved_by = (
+            """<div style="display: flex; gap: 2px; margin-bottom: .5rem;">
                             <span>Approved By : </span>
                             <span>{}</span>
-                        </div>'''.format(data['approved_by']) if data['approved_by'] else '''<div></div>'''
+                        </div>""".format(
+                data["approved_by"]
+            )
+            if data["approved_by"]
+            else """<div></div>"""
+        )
 
-        approved_comment='''<div style="display: flex; gap: 2px; margin-bottom: .5rem;">
+        approved_comment = (
+            """<div style="display: flex; gap: 2px; margin-bottom: .5rem;">
                             <span>Approver Comment : </span>
                             <span>{}</span>
-                        </div>'''.format(data['assignees_comment']) if data['assignees_comment'] else '''<div></div>'''
+                        </div>""".format(
+                data["assignees_comment"]
+            )
+            if data["assignees_comment"]
+            else """<div></div>"""
+        )
 
         html = """
             <!DOCTYPE html>
@@ -711,16 +780,18 @@ def mail_confirmation(data):
                     <br />
                 </body>
                 </html>""".format(
-            data['next_approver_user_name'],
-            data['capex_status'],
-            data['nature_of_requirement'],
-            data['raised_by'],
-            data['department'],
-            datetime.strptime(data['capex_raised_date'][0:10], "%Y-%m-%d").strftime("%d-%m-%Y"),
-            data['total_cost'],
+            data["next_approver_user_name"],
+            data["capex_status"],
+            data["nature_of_requirement"],
+            data["raised_by"],
+            data["department"],
+            datetime.strptime(data["capex_raised_date"][0:10], "%Y-%m-%d").strftime(
+                "%d-%m-%Y"
+            ),
+            data["total_cost"],
             approved_by,
             approved_comment,
-            approval_btn
+            approval_btn,
         )
 
         # Set up the email addresses and password. Please replace below with your email address and password
@@ -748,48 +819,48 @@ def mail_confirmation(data):
     except Exception as e:
         print("Error in sending email:", e)
         return Response("Error in sending email", status=500)
-    
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def md_approval_on_mail(request):
     try:
-        button_option=request.GET['type']
-        budget_id=request.GET['budget_id']
-        capex_id=request.GET['capex_id']
-        
+        button_option = request.GET["type"]
+        budget_id = request.GET["budget_id"]
+        capex_id = request.GET["capex_id"]
+
         # 0 is APPROVE
         # 1 is REJECT
 
-        api_url = '{}/capex/data-capex/{}/'.format(os.getenv("CAPEX_API"),capex_id)
+        api_url = "{}/capex/data-capex/{}/".format(os.getenv("CAPEX_API"), capex_id)
 
         payload = {
-        'budget_id':budget_id,
-        'capex_id':capex_id,
-        'approver_status':'',
-        'approver_comment':'',
-        'user_no':'15604',
-    }
-        
+            "budget_id": budget_id,
+            "capex_id": capex_id,
+            "approver_status": "",
+            "approver_comment": "",
+            "user_no": "15604",
+        }
+
         match button_option:
-            case '0':
-                payload['approver_status']="0"
-                payload['approver_comment']="Approved from mail"
+            case "0":
+                payload["approver_status"] = "0"
+                payload["approver_comment"] = "Approved from mail"
                 requests.put(api_url, json=payload)
-                return HttpResponse(notify_md_return_meassage.format('Approved'))
-            
-            case '1':
-                payload['approver_status']="1"
-                payload['approver_comment']="Rejected from mail"
+                return HttpResponse(notify_md_return_meassage.format("Approved"))
+
+            case "1":
+                payload["approver_status"] = "1"
+                payload["approver_comment"] = "Rejected from mail"
                 requests.put(api_url, json=payload)
-                return HttpResponse(notify_md_return_meassage.format('Rejected'))
+                return HttpResponse(notify_md_return_meassage.format("Rejected"))
 
             case _:
                 return HttpResponse(",Something Went Wrong")
     except Exception as e:
         print(e)
 
-notify_md_return_meassage='''
+
+notify_md_return_meassage = """
   <!DOCTYPE html>
                 <html lang="en">  
                 <head>
@@ -825,7 +896,7 @@ notify_md_return_meassage='''
                     <br />
                 </body>
                 </html>
-'''
+"""
 
 
 capex_wf_status = {
@@ -836,8 +907,16 @@ capex_wf_status = {
     4: "ASK FOR JUSTIFICATION",
 }
 
+
 def capex_wf_approvers(department):
-    return json.loads( execute_sql("select approver from capex_workflow cw where department like '%{}%';".format(department))[0]['approver'])
+    return json.loads(
+        execute_sql(
+            "select approver from capex_workflow cw where department like '%{}%';".format(
+                department
+            )
+        )[0]["approver"]
+    )
+
 
 @api_view(["GET"])
 def get_list_of_user_for_capex_approver(request):
@@ -854,78 +933,173 @@ def get_list_of_user_for_capex_approver(request):
 @api_view(["GET"])
 def generate_capex_final_pdf(request):
     try:
-    #     budget_id = request.GET["budget_id"]
-    #     capex_id = request.GET["capex_id"]
-    #     raised_by=request.GET["raised_by"]
-    #     budget_data=execute_sql("select * from capex_excel_master where id='{}'".format(budget_id))
-    #     capex_data=execute_sql("select * from capex_data_master cdm where id='{}'".format(capex_id))
-    #     approval_flow=json.loads(capex_data[0]['approval_flow'])
+        budget_id = request.GET["budget_id"]
+        capex_id = request.GET["capex_id"]
+        raised_by = request.GET["raised_by"]
+        budget_data = execute_sql(
+            """SELECT 
+                id::text, 
+                COALESCE(budget_no,'N/A') as budget_no, 
+                COALESCE(purpose_code,'N/A') as purpose_code, 
+                COALESCE(purpose_description,'N/A') as purpose_description, 
+                COALESCE(line_no::text,'N/A') as line_no, 
+                COALESCE(plant,'N/A') as plant, 
+                COALESCE(dept,'N/A') as dept, 
+                COALESCE(capex_group,'N/A') as capex_group, 
+                COALESCE(capex_class,'N/A') as capex_class, 
+                COALESCE(category,'N/A') as category, 
+                COALESCE(asset_description,'N/A') as asset_description, 
+                COALESCE(details,'N/A') as details, 
+                COALESCE(rate::text,'N/A') as rate, 
+                COALESCE(qty::text,'N/A') as qty, 
+                COALESCE(uom::text,'N/A') as uom, 
+                COALESCE(final_budget::text,'N/A') as final_budget, 
+                COALESCE(remarks,'N/A') as remarks, 
+                COALESCE(created_at::text,'N/A') as created_at, 
+                COALESCE(updated_at::text,'N/A') as updated_at, 
+                COALESCE(delete_flag::text,'N/A') as delete_flag, 
+                COALESCE(is_active::text,'N/A') as is_active
+                FROM capex_excel_master where id='{}'""".format(
+                budget_id
+            )
+        )
 
-    #     replacements={
-    #         '<<Capex_Id>>':str(capex_data[0]['id']),
-    #         '<<Date>>':datetime.now().strftime('%d-%m-%Y'),
-    #         '<<Purpose_Description>>':budget_data[0]['purpose_description'].title(),
-    #         '<<location>>':budget_data[0]['plant'].title(),
-    #         '<<Capex_Group>>':capex_data[0]['flow_type'].title(),
-    #         '<<Asset_Description>>':budget_data[0]['asset_description'].title(),
-    #         '<<Capex_Raised_By>>':raised_by.lower(),
-    #         '<<Flow_Type>>':str(capex_data[0]['flow_type'])[4:].title(),
-    #         '<<Dept>>':budget_data[0]['dept'].lower(),
-    #         '<<Site_Delivery_Date>>':str(capex_data[0]['site_delivery_date'])[0:10],
-    #         '<<Nature_Of_Requirement>>':capex_data[0]['nature_of_requirement'].title(),
-    #         '<<Purpose>>':capex_data[0]['purpose'].title(),
-    #         '<<Capex_For_Which_Department>>':capex_data[0]['capex_for_which_department'],
-    #         '<<Budget_Type>>':capex_data[0]['budget_type'].lower() if capex_data[0]['budget_type'] else "Non Budgeted" ,
-    #         '<<Total_Cost>>':str(capex_data[0]['total_cost']),
-    #         '<<Comment1>>':capex_data[0]['comment1'],
-    #         '<<Comment3>>':capex_data[0]['comment3'],
-    #         '<<approver1_name>>':str(approval_flow[0]['user_name']).title(),
-    #         '<<approver1_comment>>':approval_flow[0]['comments'],
-    #         '<<approver1_status>>':str(capex_wf_status[int( approval_flow[0]['status'])+1]).title(),
-    #         '<<approver1_date>>':datetime.strptime(str(approval_flow[0]['time']), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y"),
-    #         '<<approver2_name>>':str(approval_flow[1]['user_name']).title(),
-    #         '<<approver2_comment>>':approval_flow[1]['comments'],
-    #         '<<approver2_status>>':str(capex_wf_status[int( approval_flow[1]['status'])+1]).title(),
-    #         '<<approver2_date>>':datetime.strptime(str(approval_flow[1]['time']), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y"),
-    #         '<<approver3_name>>':str(approval_flow[2]['user_name']).title(),
-    #         '<<approver3_comment>>':approval_flow[2]['comments'],
-    #         '<<approver3_status>>':str(capex_wf_status[int( approval_flow[2]['status'])+1]).title(),
-    #         '<<approver3_date>>':datetime.strptime(str(approval_flow[2]['time']), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y"),
-    #         '<<approver4_name>>': str(approval_flow[3].get('user_name')).title() if len(approval_flow) > 3 else "",
-    #         '<<approver4_comment>>': approval_flow[3].get('comments') if len(approval_flow) > 3 else "",
-    #         '<<approver4_status>>': str(capex_wf_status[int(approval_flow[3].get('status'))+1]).title() if len(approval_flow) > 3 else "",
-    #         '<<approver4_date>>': datetime.strptime(str(approval_flow[3].get('time')), "%A, %d %b %Y %H:%M").strftime("%d-%m-%Y") if len(approval_flow) > 3 else "",
-    #         }
-        
-        
-    #     def replace_text_in_docx(docx_file, replacements):
-    #         doc = Document(docx_file)
+        capex_data = execute_sql(
+            """     SELECT 
+                    id::text, 
+                    COALESCE(budget_id::text,'N/A') as budget_id, 
+                    COALESCE(nature_of_requirement::text,'N/A') as nature_of_requirement, 
+                    COALESCE(purpose::text,'N/A') as purpose, 
+                    COALESCE(payback_period::text,'N/A') as payback_period, 
+                    COALESCE(capex_for_which_department::text,'N/A') as capex_for_which_department, 
+                    COALESCE(return_on_investment::text,'N/A') as return_on_investment, 
+                    COALESCE(budget_type::text,'N/A') as budget_type, 
+                    COALESCE(requisition_date::text,'N/A') as requisition_date, 
+                    COALESCE(total_cost::text,'N/A') as total_cost, 
+                    COALESCE(site_delivery_date::text,'N/A') as site_delivery_date, 
+                    COALESCE(capex_status::text,'N/A') as capex_status, 
+                    COALESCE(installation_date::text,'N/A') as installation_date, 
+                    COALESCE(comment1::text,'N/A') as comment1, 
+                    COALESCE(comment2::text,'N/A') as comment2, 
+                    COALESCE(comment3::text,'N/A') as comment3, 
+                    COALESCE(comment4::text,'N/A') as comment4, 
+                    COALESCE(comment5::text,'N/A') as comment5, 
+                    COALESCE(comment7::text,'N/A') as comment7, 
+                    COALESCE(user_file::text,'N/A') as user_file, 
+                    COALESCE(comment6::text,'N/A') as comment6, 
+                    COALESCE(created_at::text,'N/A') as created_at, 
+                    COALESCE(updated_at::text,'N/A') as updated_at, 
+                    COALESCE(asset_listings::text,'N/A') as asset_listings, 
+                    COALESCE(flow_type::text,'N/A') as flow_type, 
+                    COALESCE(approval_flow::text,'N/A') as approval_flow, 
+                    COALESCE(capex_raised_by::text,'N/A') as capex_raised_by, 
+                    COALESCE(capex_current_at::text,'N/A') as capex_current_at,
+                    COALESCE(delete_flag::text,'N/A')  as delete_flag
+                    FROM capex_data_master where id='{}'""".format(
+                capex_id
+            )
+        )
+        approval_flow = json.loads(capex_data[0]["approval_flow"])
 
-    #         for paragraph in doc.paragraphs:
-    #             for key, value in replacements.items():
-    #                 if key in paragraph.text:
-    #                     paragraph.text = paragraph.text.replace(key, value)
+        replacements = {
+            "{{Capex_Id}}": str(capex_data[0]["id"]),
+            "{{Date}}": datetime.now().strftime("%d-%m-%Y"),
+            "{{Purpose_Description}}": budget_data[0]["purpose_description"].title(),
+            "{{location}}": budget_data[0]["plant"].title(),
+            "{{Capex_Group}}": capex_data[0]["flow_type"].title(),
+            "{{Asset_Description}}": budget_data[0]["asset_description"].title(),
+            "{{Capex_Raised_By}}": raised_by.lower(),
+            "{{Flow_Type}}": str(capex_data[0]["flow_type"])[4:].title(),
+            "{{Dept}}": budget_data[0]["dept"].lower(),
+            "{{Site_Delivery_Date}}": str(capex_data[0]["site_delivery_date"])[0:10],
+            "{{Nature_Of_Requirement}}": capex_data[0]["nature_of_requirement"].title(),
+            "{{Purpose}}": capex_data[0]["purpose"].title(),
+            "{{Capex_For_Which_Department}}": (
+                capex_data[0]["capex_for_which_department"].lower()
+                if capex_data[0]["capex_for_which_department"]
+                else ""
+            ),
+            "{{Budget_Type}}": (
+                capex_data[0]["budget_type"].lower()
+                if capex_data[0]["budget_type"]
+                else "Non Budgeted"
+            ),
+            "{{Total_Cost}}": str(capex_data[0]["total_cost"]),
+            "{{Comment1}}": capex_data[0]["comment1"],
+            "{{Comment3}}": capex_data[0]["comment3"],
+            "{{approver1_name}}": str(approval_flow[0]["user_name"]).title(),
+            "{{approver1_comment}}": approval_flow[0]["comments"],
+            "{{approver1_status}}": str(
+                capex_wf_status[int(approval_flow[0]["status"]) + 1]
+            ).title(),
+            "{{approver1_date}}": datetime.strptime(
+                str(approval_flow[0]["time"]), "%A, %d %b %Y %H:%M"
+            ).strftime("%d-%m-%Y"),
+            "{{approver2_name}}": str(approval_flow[1]["user_name"]).title(),
+            "{{approver2_comment}}": approval_flow[1]["comments"],
+            "{{approver2_status}}": str(
+                capex_wf_status[int(approval_flow[1]["status"]) + 1]
+            ).title(),
+            "{{approver2_date}}": datetime.strptime(
+                str(approval_flow[1]["time"]), "%A, %d %b %Y %H:%M"
+            ).strftime("%d-%m-%Y"),
+            "{{approver3_name}}": str(approval_flow[2]["user_name"]).title(),
+            "{{approver3_comment}}": approval_flow[2]["comments"],
+            "{{approver3_status}}": str(
+                capex_wf_status[int(approval_flow[2]["status"]) + 1]
+            ).title(),
+            "{{approver3_date}}": datetime.strptime(
+                str(approval_flow[2]["time"]), "%A, %d %b %Y %H:%M"
+            ).strftime("%d-%m-%Y"),
+            "{{approver4_name}}": (
+                str(approval_flow[3].get("user_name")).title()
+                if len(approval_flow) > 3
+                else ""
+            ),
+            "{{approver4_comment}}": (
+                approval_flow[3].get("comments") if len(approval_flow) > 3 else ""
+            ),
+            "{{approver4_status}}": (
+                str(capex_wf_status[int(approval_flow[3].get("status")) + 1]).title()
+                if len(approval_flow) > 3
+                else ""
+            ),
+            "{{approver4_date}}": (
+                datetime.strptime(
+                    str(approval_flow[3].get("time")), "%A, %d %b %Y %H:%M"
+                ).strftime("%d-%m-%Y")
+                if len(approval_flow) > 3
+                else ""
+            ),
+        }
 
-    #         for table in doc.tables:
-    #             for row in table.rows:
-    #                 for cell in row.cells:
-    #                     for paragraph in cell.paragraphs:
-    #                         for key, value in replacements.items():
-    #                             if key in paragraph.text:
-    #                                 paragraph.text = paragraph.text.replace(key, value)
-    #         return doc
+        def replace_placeholders(html_file, replacements):
+            with open(html_file, "r") as f:
+                html_content = f.read()
 
-    #     docx_file = 'CAPEX TEMPLATE.docx'
-    #     doc = replace_text_in_docx(docx_file, replacements)
-    #     doc.save('modified_template.docx')
-    #     convert('modified_template.docx', 'capex.pdf')
+            for key, value in replacements.items():
+                html_content = html_content.replace(key, value)
 
-    #     with open('capex.pdf', 'rb') as pdf_file:
-    #         response = HttpResponse(pdf_file.read(), content_type='application/pdf')
-    #         response['Content-Disposition'] = 'inline; filename=output.pdf'
-    #         os.remove('modified_template.docx')
-    #         return response        
-        return Response({"mess":"ok"})
+            return html_content
+
+        html_file = "capex.html"
+        updated_html_content = replace_placeholders(html_file, replacements)
+
+        output_html_file = "intermediate.html"
+        with open(output_html_file, "w") as f:
+            f.write(updated_html_content)
+
+        print("Replacement completed. Output saved to", output_html_file)
+        tkt_link_prefix = os.getenv("PATH_TO_WKHTMLTOPDF")
+        path_to_wkhtmltopdf = r"{}".format(tkt_link_prefix)
+        path_to_file = "intermediate.html"
+        config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
+        pdfkit.from_file(path_to_file, output_path="capex.pdf", configuration=config)
+
+        with open("capex.pdf", "rb") as pdf_file:
+            response = HttpResponse(pdf_file.read(), content_type="application/pdf")
+            response["Content-Disposition"] = "inline; filename=capex.pdf"
+            return response
+        return Response({"mess": "ok"})
     except Exception as e:
-        return Response({"mess":e})
-        
+        return Response({"mess": e})
