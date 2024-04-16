@@ -7,6 +7,7 @@ from ticket_app.views import (
     data_by_id,
     get_all_user_list,
     view_all_tickets,
+    get_ticket_info_notifications_by_emp_id,
 )
 
 
@@ -22,4 +23,9 @@ urlpatterns = [
     path("req_type/", req_type_dynamic_values, name="req-type-dynamic-values"),
     path("get-all-users/", get_all_user_list, name="get-all-user-list"),
     path("view/all/", view_all_tickets, name="view-all-tickets"),
+    path(
+        "notification/all/",
+        get_ticket_info_notifications_by_emp_id,
+        name="get-ticket-info-notifications-by-emp-id",
+    ),
 ]

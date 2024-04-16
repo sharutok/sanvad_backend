@@ -42,6 +42,9 @@ from ticket_app.views import user_details_from_emp_id
 def download_excel(request):
     try:
         data_module = request.data["data_module"]
+        start_date = request.data["start_date"]
+        end_date = request.data["end_date"]
+        print(start_date, end_date)
         data = ""
         match data_module:
             case "user_manage":
@@ -70,32 +73,55 @@ def download_excel(request):
                     )[:100]
                 )
             case "ticket":
-                data = (
-                    TicketSystemModel.objects.filter(delete_flag=False)
-                    .order_by("-updated_at")
-                    .annotate(
-                        TICKET_NO=F("ticket_no"),
-                        TKT_TITLE=F("tkt_title"),
-                        TKT_TYPE=F("tkt_type"),
-                        REQ_TYPE=F("req_type"),
-                        REQUESTER_EMP_NO=F("requester_emp_no"),
-                        SEVERITY=F("severity"),
-                        CREATED_AT=F("created_at"),
-                        TKT_STATUS=F("tkt_status"),
-                        TKT_CURRENT_AT=F("tkt_current_at"),
-                    )
-                    .values(
-                        "TICKET_NO",
-                        "TKT_TITLE",
-                        "TKT_TYPE",
-                        "REQ_TYPE",
-                        "REQUESTER_EMP_NO",
-                        "SEVERITY",
-                        "CREATED_AT",
-                        "TKT_STATUS",
-                        "TKT_CURRENT_AT",
-                    )[:100]
+                raw_sql = """
+            select  ts.ticket_no ,ts.tkt_title,ts.req_type,	
+          case 
+        	when tkt_current_at='00547' and jsonb_array_length(approval_flow)=0 then 'MANAGER' 
+        	when tkt_current_at='00547' and jsonb_array_length(approval_flow)=2 then 'IT HEAD' 
+        	when tkt_current_at='14383' and jsonb_array_length(approval_flow)=1 then 'TICKET ADMIN' 
+        	else ''
+        end as ROLE,
+          case 
+        	when severity='0' and jsonb_array_length(approval_flow)=0 then 'LOW' 
+        	when severity='1' and jsonb_array_length(approval_flow)=2 then 'MEDIUM' 
+        	when severity='2' and jsonb_array_length(approval_flow)=1 then 'HIGH' 
+        	else ''
+        end as severity,
+        concat(um.first_name, ' ',
+        um.last_name) tkt_current_at,
+        concat(um2.first_name,' ',um2.last_name) requester_emp_name,
+        case
+		when tkt_status = 'CLOSED' then replace(approval_flow[jsonb_array_length(approval_flow)-1]['time']::text,'"',' ')
+		end as closed_date,
+		case
+		when tkt_status = 'CLOSED' then replace(approval_flow[jsonb_array_length(approval_flow)-1]['user_name']::text,'"',' ')
+		end as closed_by,
+        to_char(ts.created_at::timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD-MM-YYYY hh:mi AM') created_at
+        from
+        	tkt_system ts
+        left join user_management um on
+        	ts.tkt_current_at = um.emp_no
+        left join user_management um2 on
+        	ts.requester_emp_no = um2.emp_no 
+        left join  tkt_file_uploads tfu on
+			ts.id = tfu.ticket_ref_id  and ts.delete_flag = false
+        where ts.created_at between '{}' and '{}'
+            group by
+		    ts.id,
+		    ts.ticket_no,
+		    ts.tkt_title,
+		    ts.tkt_type ,
+		    ts.req_type ,
+		    ts.tkt_description ,
+		    um.first_name,
+		    um.last_name,
+		    um2.first_name,
+		    um2.last_name
+        	order by ts.created_at ;
+                """.format(
+                    start_date, end_date
                 )
+                data = select_sql(raw_sql)
             case "conference":
                 raw_sql = """
                 select
@@ -159,10 +185,10 @@ def download_excel(request):
                         	cdm.updated_at desc
                         limit 100;"""
                 data = select_sql(raw_sql)
-        return Response({"status_code": status.HTTP_200_OK, "data": data})
+        return Response({"status": 200, "data": data})
     except Exception as e:
         print(e)
-        return Response({"status_code": status.HTTP_400_BAD_REQUEST})
+        return Response({"status": 400})
 
 
 @api_view(["GET"])
@@ -572,10 +598,8 @@ def which_frame(request):
         return Response(400)
 
 
-
-
-def common_mail_template(to_email:list,html,subject):
-    try: 
+def common_mail_template(to_email: list, html, subject):
+    try:
         load_dotenv()
         from_email = os.getenv("SENDER_EMAIL")
         smtp_server = os.getenv("SMTP_SERVER")
@@ -586,7 +610,7 @@ def common_mail_template(to_email:list,html,subject):
         # Set up the email addresses and password. Please replace below with your email address and password
         email_from = from_email
         password = smtp_password
-        email_to = list(set(to_email)) 
+        email_to = list(set(to_email))
 
         # Create a MIMEMultipart class, and set up the From, To, Subject fields
         email_message = MIMEMultipart()
@@ -608,4 +632,3 @@ def common_mail_template(to_email:list,html,subject):
     except Exception as e:
         print("Error in sending email:", e)
         return Response("Error in sending email", status=500)
-        

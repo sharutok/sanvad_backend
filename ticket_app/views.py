@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
-
 from django.db.models import Q
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -103,19 +102,19 @@ def all_data(request):
             or um2.last_name ilike '%{}%'
             or tkt_status ilike '%{}%'
             )
-            and ts.delete_flag = false
-            group by
-		    ts.id,
-		    ts.ticket_no,
-		    ts.tkt_title,
-		    ts.tkt_type ,
-		    ts.req_type ,
-		    ts.tkt_description ,
-		    um.first_name,
-		    um.last_name,
-		    um2.first_name,
-		    um2.last_name
-        	order by ts.created_at desc
+                and ts.delete_flag = false
+                group by
+                ts.id,
+                ts.ticket_no,
+                ts.tkt_title,
+                ts.tkt_type ,
+                ts.req_type ,
+                ts.tkt_description ,
+                um.first_name,
+                um.last_name,
+                um2.first_name,
+                um2.last_name
+                order by ts.created_at desc
          ;
     """.format(
         _emp_no,
@@ -836,6 +835,33 @@ def get_all_user_list(request):
         return Response(results)
 
 
+@api_view(["GET"])
+def get_ticket_info_notifications_by_emp_id(request):
+    try:
+        emp_id = request.GET["emp_id"]
+        print(emp_id)
+        user_info = UserManagement.objects.get(emp_no=emp_id)
+        user_info_serializers = userManagementSerializer(user_info)
+        emp_id = user_info_serializers.data["id"]
+
+        cursor = 0
+        pattern = "{}*".format(emp_id)
+        notifi_list = []
+        while True:
+            cursor, keys = r.scan(cursor, match=pattern)
+
+            for key in keys:
+                value = r.get(key)
+                ttl = r.ttl(key)
+                notifi_list.append({"Key": key, "Value": value, "TTL": ttl})
+
+            if cursor == 0:
+                break
+        return Response(notifi_list)
+    except Exception as e:
+        raise Exception("remove_ticket_notification", e)
+
+
 def user_details_from_emp_id(emp_no):
     queryset = UserManagement.objects.get(emp_no=emp_no)
     serializers = userManagementSerializer(queryset)
@@ -973,9 +999,11 @@ def send_mail_later(obj_data, instance):
             "raised_by_mail_id": user_details_from_emp_id(instance.requester_emp_no)[
                 "email_id"
             ],
-            "next_approver_mail_id": ""
-            if not instance.tkt_current_at
-            else user_details_from_emp_id(instance.tkt_current_at)["email_id"],
+            "next_approver_mail_id": (
+                ""
+                if not instance.tkt_current_at
+                else user_details_from_emp_id(instance.tkt_current_at)["email_id"]
+            ),
             "current_approved_by": user_details_from_emp_id(obj_data["emp_id"])[
                 "first_name"
             ]
@@ -1217,3 +1245,18 @@ def send_mail_early(instance):
     except Exception as e:
         print("Error in sending email:", e)
         return Response("Error in sending email", status=500)
+
+
+def create_ticket_notification(emp_id, ticket_id, data):
+    try:
+        r.set("{}:{}".format(emp_id, ticket_id), "{}".format(ticket_id))
+        r.expire("{}:{}".format(emp_id, ticket_id), ((24 * 60 * 60) * 7))
+    except Exception as e:
+        raise Exception("create_ticket_notification", e)
+
+
+def remove_ticket_notification(emp_id, ticket_id):
+    try:
+        r.delete("{}:{}".format(emp_id, ticket_id))
+    except Exception as e:
+        raise Exception("remove_ticket_notification", e)
