@@ -4,7 +4,9 @@ from workflow_app.views import (
     ticket_wf_systems,
     ticket_wf_infra,
     capex_wf_plant,
-    capex_wf_corporate,capex_workflow_operation
+    capex_wf_corporate,
+    capex_workflow_operation,
+    all_capex_wf,
 )
 
 urlpatterns = [
@@ -12,5 +14,6 @@ urlpatterns = [
     path("ticket/infra/", ticket_wf_infra, name="ticket-wf-infra"),
     path("capex/plant/", capex_wf_plant, name="capex-wf-plant"),
     path("capex/corporate/", capex_wf_corporate, name="capex-wf-corporate"),
-    path("capex/op/",capex_workflow_operation,name="capex-workflow-operation")    
+    path("capex/op/", capex_workflow_operation, name="capex-workflow-operation"),
+    path("all/capex-wf/list/", all_capex_wf, name="all-capex-wf"),
 ]

@@ -42,7 +42,7 @@ class Capex(models.Model):
 
 
 class Capex1(models.Model):
-    id = models.UUIDField(primary_key=True,default=uuid.uuid4, editable=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
     budget_id = models.UUIDField(editable=True)
     nature_of_requirement = models.CharField(max_length=150, null=True)
     purpose = models.CharField(max_length=150, null=True)
@@ -72,6 +72,7 @@ class Capex1(models.Model):
     capex_raised_by = models.CharField(max_length=150, null=True)
     capex_current_at = models.CharField(max_length=150, null=True)
     delete_flag = models.BooleanField(default=False)
+    capex_wf_id = models.CharField(max_length=150, null=True)
 
     def __str__(self):
         return self.id
@@ -91,5 +92,3 @@ class UploadBudget(models.Model):
 
     class Meta:
         db_table = "upload_budget"
-
-

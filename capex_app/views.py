@@ -10,6 +10,8 @@ from capex_app.serializers import (
     UploadBudgetSerializer,
 )
 import smtplib
+from copy import deepcopy
+
 from rest_framework import status
 import pandas as pd
 import requests
@@ -329,9 +331,7 @@ def get_by_capex_id(request, id):
                         raised_by = serializers.data["capex_raised_by"]
                         approved_by = request.data["user_no"]
 
-                        data = capex_wf_approvers(
-                            user_details_from_emp_id(raised_by)["department"]
-                        )
+                        data = capex_wf_approvers(serializers.data["capex_wf_id"])
                         row = []
                         for value in data:
                             row.append(value.split("#")[1])
@@ -349,9 +349,7 @@ def get_by_capex_id(request, id):
                     raised_by = serializers.data["capex_raised_by"]
 
                     row = []
-                    data = capex_wf_approvers(
-                        user_details_from_emp_id(raised_by)["department"]
-                    )
+                    data = capex_wf_approvers(serializers.data["capex_wf_id"])
                     row = []
                     for value in data:
                         row.append(value.split("#")[1])
@@ -371,9 +369,7 @@ def get_by_capex_id(request, id):
                         raised_by = serializers.data["capex_raised_by"]
                         approved_by = request.data["user_no"]
                         row = []
-                        data = capex_wf_approvers(
-                            user_details_from_emp_id(raised_by)["department"]
-                        )
+                        data = capex_wf_approvers(serializers.data["capex_wf_id"])
                         row = []
                         for value in data:
                             row.append(value.split("#")[1])
@@ -389,9 +385,7 @@ def get_by_capex_id(request, id):
                     justification_by = request.data["user_no"]
                     raised_by = serializers.data["capex_raised_by"]
                     row = []
-                    data = capex_wf_approvers(
-                        user_details_from_emp_id(raised_by)["department"]
-                    )
+                    data = capex_wf_approvers(serializers.data["capex_wf_id"])
                     row = []
                     for value in data:
                         row.append(value.split("#")[1])
@@ -521,25 +515,30 @@ def create_new_capex(request):
         data = execute_sql(
             "select * from user_management um where emp_no='{}';".format(raised_by_emp)
         )[0]
+
         department = data["department"]
+        plant_name = data["plant_name"]
 
         get_capex_flow_info = execute_sql(
-            "select * from capex_workflow cw where department like '%{}%';".format(
-                department
+            "select * from capex_workflow cw where department like '%{}%' and plant like '%{}%';".format(
+                department, plant_name
             )
         )[0]
+
         which_flow = (
             "for_plant"
             if str(get_capex_flow_info["which_flow"]) == "0"
             else "for_corporate"
         )
-
+        mutable_data = deepcopy(request.data)
         whose_ur_manager = json.loads(get_capex_flow_info["approver"])[0].split("#")[1]
-        request.data["capex_current_at"] = whose_ur_manager
-        request.data["capex_status"] = capex_wf_status[0]
-        request.data["flow_type"] = which_flow
-        request.data["capex_raised_by"] = request.data["raised_by"]
-        serializers = Capex1Serializer(data=request.data)
+        mutable_data["capex_current_at"] = whose_ur_manager
+        mutable_data["capex_status"] = capex_wf_status[0]
+        mutable_data["flow_type"] = which_flow
+        mutable_data["capex_raised_by"] = mutable_data["raised_by"]
+        mutable_data["capex_wf_id"] = str(get_capex_flow_info["id"])
+
+        serializers = Capex1Serializer(data=mutable_data)
 
         if serializers.is_valid():
             serializers.save()
@@ -597,7 +596,6 @@ def capex_components_view_access(woosee, request):
 
 
 def get_capex_admin():
-    ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
     key_name = "capex_admin"
     data = r.lrange(key_name, 0, -1)
     return data
@@ -908,11 +906,11 @@ capex_wf_status = {
 }
 
 
-def capex_wf_approvers(department):
+def capex_wf_approvers(id):
     return json.loads(
         execute_sql(
-            "select approver from capex_workflow cw where department like '%{}%';".format(
-                department
+            "select approver from capex_workflow cw where id::text like '%{}%';".format(
+                id
             )
         )[0]["approver"]
     )
