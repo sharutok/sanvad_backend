@@ -779,20 +779,20 @@ def create(request):
         )
         if Ticketserializers.is_valid():
             obj = Ticketserializers.save()
-            create_ticket_notification(
-                emp_id=managers_id,
-                ticket_id=obj.id,
-                data={
-                    "ticket_no": obj.ticket_no,
-                    "tkt_type": obj.tkt_type,
-                    "req_type": obj.req_type,
-                    "created_at": str(obj.created_at),
-                    "requester_emp_no": "{} {}".format(
-                        Userserializers.data["first_name"],
-                        Userserializers.data["last_name"],
-                    ),
-                },
-            )
+            # create_ticket_notification(
+            #     emp_id=managers_id,
+            #     ticket_id=obj.id,
+            #     data={
+            #         "ticket_no": obj.ticket_no,
+            #         "tkt_type": obj.tkt_type,
+            #         "req_type": obj.req_type,
+            #         "created_at": str(obj.created_at),
+            #         "requester_emp_no": "{} {}".format(
+            #             Userserializers.data["first_name"],
+            #             Userserializers.data["last_name"],
+            #         ),
+            #     },
+            # )
             send_mail_early(instance=obj)
             # UPLOAD FILE LOGIC
             n = str(request.data["file_count"])
