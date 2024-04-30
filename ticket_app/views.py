@@ -312,22 +312,22 @@ def data_by_id(request, id):
                             )
                         )
 
-                        create_ticket_notification(
-                            emp_id=userManagementSerializer(
-                                UserManagement.objects.get(emp_no=nextflow)
-                            ).data["id"],
-                            ticket_id=serializers.data["id"],
-                            data={
-                                "ticket_no": serializers.data["ticket_no"],
-                                "tkt_type": serializers.data["tkt_type"],
-                                "req_type": serializers.data["req_type"],
-                                "created_at": str(serializers.data["created_at"]),
-                                "requester_emp_no": "{} {}".format(
-                                    user_info_serializers.data["first_name"],
-                                    user_info_serializers.data["last_name"],
-                                ),
-                            },
-                        )
+                        # create_ticket_notification(
+                        #     emp_id=userManagementSerializer(
+                        #         UserManagement.objects.get(emp_no=nextflow)
+                        #     ).data["id"],
+                        #     ticket_id=serializers.data["id"],
+                        #     data={
+                        #         "ticket_no": serializers.data["ticket_no"],
+                        #         "tkt_type": serializers.data["tkt_type"],
+                        #         "req_type": serializers.data["req_type"],
+                        #         "created_at": str(serializers.data["created_at"]),
+                        #         "requester_emp_no": "{} {}".format(
+                        #             user_info_serializers.data["first_name"],
+                        #             user_info_serializers.data["last_name"],
+                        #         ),
+                        #     },
+                        # )
                         # APPROVED
                         if user_status == "0":
 
