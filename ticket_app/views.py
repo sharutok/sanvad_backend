@@ -1,4 +1,5 @@
 import smtplib
+from urllib import response
 from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -305,8 +306,31 @@ def data_by_id(request, id):
                     def res_body_for_erp_tkt(user_status, nextflow):
                         tkt_status = ""
                         tkt_current_at = ""
+                        user_info_serializers = userManagementSerializer(
+                            UserManagement.objects.get(
+                                emp_no=serializers.data["requester_emp_no"]
+                            )
+                        )
+
+                        create_ticket_notification(
+                            emp_id=userManagementSerializer(
+                                UserManagement.objects.get(emp_no=nextflow)
+                            ).data["id"],
+                            ticket_id=serializers.data["id"],
+                            data={
+                                "ticket_no": serializers.data["ticket_no"],
+                                "tkt_type": serializers.data["tkt_type"],
+                                "req_type": serializers.data["req_type"],
+                                "created_at": str(serializers.data["created_at"]),
+                                "requester_emp_no": "{} {}".format(
+                                    user_info_serializers.data["first_name"],
+                                    user_info_serializers.data["last_name"],
+                                ),
+                            },
+                        )
                         # APPROVED
                         if user_status == "0":
+
                             if len(serializers.data["approval_flow"]) >= 3:
                                 tkt_status = ticket_wf_status[0]
                                 tkt_current_at = nextflow
@@ -544,12 +568,14 @@ def data_by_id(request, id):
                                     )
 
                                     if serializers.is_valid():
+
                                         instance = serializers.save()
                                         obj_data["next_approver"] = val[1]
                                         approval_flow_execute(obj_data)
                                         send_mail_later(
                                             obj_data=obj_data, instance=instance
                                         )
+                                        pass
                                     else:
                                         print(serializers.errors)
 
@@ -720,13 +746,16 @@ def data_by_id(request, id):
 @api_view(["POST"])
 def create(request):
     try:
-        _ticket_ref_id = uuid.uuid4()
         requester_emp_no = request.data["requester_emp_no"]
 
         # whose your manager
         user_info = UserManagement.objects.get(emp_no=requester_emp_no)
         Userserializers = userManagementSerializer(user_info)
         users_manager = Userserializers.data["manager_code"]
+
+        managers_id = userManagementSerializer(
+            UserManagement.objects.get(emp_no=Userserializers.data["manager_code"])
+        ).data["id"]
 
         _data = {"tkt_current_at": users_manager}
         match request.data["tkt_type"]:
@@ -750,6 +779,20 @@ def create(request):
         )
         if Ticketserializers.is_valid():
             obj = Ticketserializers.save()
+            create_ticket_notification(
+                emp_id=managers_id,
+                ticket_id=obj.id,
+                data={
+                    "ticket_no": obj.ticket_no,
+                    "tkt_type": obj.tkt_type,
+                    "req_type": obj.req_type,
+                    "created_at": str(obj.created_at),
+                    "requester_emp_no": "{} {}".format(
+                        Userserializers.data["first_name"],
+                        Userserializers.data["last_name"],
+                    ),
+                },
+            )
             send_mail_early(instance=obj)
             # UPLOAD FILE LOGIC
             n = str(request.data["file_count"])
@@ -835,31 +878,45 @@ def get_all_user_list(request):
         return Response(results)
 
 
-@api_view(["GET"])
+@api_view(["GET", "DELETE"])
 def get_ticket_info_notifications_by_emp_id(request):
-    try:
-        emp_id = request.GET["emp_id"]
-        print(emp_id)
-        user_info = UserManagement.objects.get(emp_no=emp_id)
-        user_info_serializers = userManagementSerializer(user_info)
-        emp_id = user_info_serializers.data["id"]
+    match request.method:
+        case "GET":
+            try:
+                emp_id = request.GET["emp_id"]
+                user_info = UserManagement.objects.get(emp_no=emp_id)
+                user_info_serializers = userManagementSerializer(user_info)
+                emp_id = user_info_serializers.data["id"]
+                cursor = 0
+                pattern = "{}*".format(emp_id)
+                notifi_list = []
+                while True:
+                    cursor, keys = r.scan(cursor, match=pattern)
 
-        cursor = 0
-        pattern = "{}*".format(emp_id)
-        notifi_list = []
-        while True:
-            cursor, keys = r.scan(cursor, match=pattern)
+                    for key in keys:
+                        value = r.get(key)
+                        ttl = r.ttl(key)
+                        notifi_list.append(
+                            {
+                                "key": key,
+                                "value": value,
+                                "ttl": round(ttl / (24 * 3600)),
+                            }
+                        )
 
-            for key in keys:
-                value = r.get(key)
-                ttl = r.ttl(key)
-                notifi_list.append({"Key": key, "Value": value, "TTL": ttl})
-
-            if cursor == 0:
-                break
-        return Response(notifi_list)
-    except Exception as e:
-        raise Exception("remove_ticket_notification", e)
+                    if cursor == 0:
+                        break
+                return Response(notifi_list)
+            except Exception as e:
+                raise Exception("get_ticket_info_notifications_by_emp_id", e)
+        case "DELETE":
+            try:
+                key = request.GET["key"]
+                r.delete("{}".format(key))
+                return Response({"status": 200})
+            except Exception as e:
+                print("remove_ticket_notification", e)
+                return Response({"status": 200})
 
 
 def user_details_from_emp_id(emp_no):
@@ -983,7 +1040,6 @@ def ticket_components_view_access(woosee, request, qreuecs):
 
 def redis_get_string(key):
     try:
-        ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
         dt = r.get(key)
         return dt
     except Exception as e:
@@ -1249,14 +1305,8 @@ def send_mail_early(instance):
 
 def create_ticket_notification(emp_id, ticket_id, data):
     try:
-        r.set("{}:{}".format(emp_id, ticket_id), "{}".format(ticket_id))
+        r.set("{}:{}".format(emp_id, ticket_id), json.dumps(data))
         r.expire("{}:{}".format(emp_id, ticket_id), ((24 * 60 * 60) * 7))
+        print("created ticket notification")
     except Exception as e:
-        raise Exception("create_ticket_notification", e)
-
-
-def remove_ticket_notification(emp_id, ticket_id):
-    try:
-        r.delete("{}:{}".format(emp_id, ticket_id))
-    except Exception as e:
-        raise Exception("remove_ticket_notification", e)
+        raise Exception("error in create_ticket_notification", e)

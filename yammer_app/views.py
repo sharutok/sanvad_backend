@@ -26,7 +26,7 @@ def get_api(request):
     try:
         ##r = redis.Redis(host="localhost", port=6379, decode_responses=True)
         return Response({"data": json.loads(r.get("yammer_data"))})
-    except e:
+    except Exception as e:
         print("error", e)
         return Response({"error": e})
 
@@ -191,9 +191,11 @@ def get_images_from_yammer_data(request):
         files_to_be_downloaded = []
         yammer_data = json.loads(r.get("yammer_data"))
         for data in yammer_data:
-            files_to_be_downloaded.append(data["image"][0]["name"]) if len(
-                data["image"]
-            ) else None
+            (
+                files_to_be_downloaded.append(data["image"][0]["name"])
+                if len(data["image"])
+                else None
+            )
         for file in files_to_be_downloaded:
             download_sharpoint_file(file)
         return Response("downloaded {}".format(len(files_to_be_downloaded)))

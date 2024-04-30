@@ -191,7 +191,10 @@ def all_capex_wf(request):
 	split_part(replace (approver[1]::text,'"',''),'#',1) as second ,
 	split_part(replace (approver[2]::text,'"',''),'#',1) as third ,
 	split_part(replace (approver[3]::text,'"',''),'#',1) as fourth,id,department,to_char(created_at::timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD-MM-YYYY') created_at
-,COALESCE(plant,'ALL') as plant,which_flow
+,COALESCE(plant,'') as plant,which_flow,replace(replace (approver[0]::text,'"',''),'#','~') as _first,
+replace(replace (approver[1]::text,'"',''),'#','~') as _second ,
+replace(replace (approver[2]::text,'"',''),'#','~') as _third ,
+replace(replace (approver[3]::text,'"',''),'#','~') as _fourth
 from
 	capex_workflow cw ;"""
         with connection.cursor() as cursor:

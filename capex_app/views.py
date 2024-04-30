@@ -11,7 +11,6 @@ from capex_app.serializers import (
 )
 import smtplib
 from copy import deepcopy
-
 from rest_framework import status
 import pandas as pd
 import requests
@@ -152,25 +151,96 @@ def get_all_capex_data(request):
         department = ""
         woosee = ""
         view = request.GET["view"]
+        raw_sql_query = ""
 
         # PERMISSION ACCORDING TO VIEW
         match view:
             # CAPEX DATA
             case "approve_capex_view":
                 woosee = request.GET["woosee"]
-                department = user_details["department"]
+                department = ""
+                raw_sql_query = """ select
+                            cdm.id capex_no,
+                            cem.budget_no ,
+                            cdm.nature_of_requirement ,
+                            cdm.total_cost,
+                            cem.purpose_code ,
+                            to_char(cdm.requisition_date::timestamp, 'DD-MM-YYYY') requisition_date,
+                            cdm.payback_period ,
+                            cdm.return_on_investment ,
+                            um1.department,
+                            cdm.budget_type,
+                            cdm.budget_id ,
+                            cdm.id capex_id,
+                            to_char(cdm.created_at::timestamp, 'DD-MM-YYYY') created_at,
+                            concat(um.first_name,' ',um.last_name) capex_current_at,
+                            concat(um1.first_name,' ',um1.last_name) capex_raised_by,
+                            cdm.capex_status
+                            from
+                                capex_data_master cdm
+                            left join user_management um on
+                                cdm.capex_current_at = um.emp_no
+                            left join capex_excel_master cem on
+                            cem.id = cdm.budget_id 
+                            left join user_management um1 on
+                            cdm.capex_raised_by =um1.emp_no 
+                            where 
+                            cdm.delete_flag=false and ((cdm.capex_raised_by like '%{}%' or cdm.capex_current_at like '%{}%') and 
+                            (cem.budget_no like '%{}%' or cem.purpose_code like '%{}%' or cdm.return_on_investment like '%{}%')) ;""".format(
+                    woosee,
+                    woosee,
+                    search_query,
+                    search_query,
+                    search_query,
+                    search_query,
+                )
             # RESPECTIVE DEPARTMENT CAPEX
             case "dept_capex_view":
                 department = user_details["department"]
-                woosee = ""
+                print(
+                    woosee,
+                    department,
+                )
+                raw_sql_query = """ 
+                            select
+                            cdm.id capex_no,
+                            cem.budget_no ,
+                            cdm.nature_of_requirement ,
+                            cdm.total_cost,
+                            cem.purpose_code ,
+                            to_char(cdm.requisition_date::timestamp, 'DD-MM-YYYY') requisition_date,
+                            cdm.payback_period ,
+                            cdm.return_on_investment ,
+                            um1.department,
+                            cdm.budget_type,
+                            cdm.budget_id ,
+                            cdm.id capex_id,
+                            to_char(cdm.created_at::timestamp, 'DD-MM-YYYY') created_at,
+                            concat(um.first_name,' ',um.last_name) capex_current_at,
+                            concat(um1.first_name,' ',um1.last_name) capex_raised_by,
+                            cdm.capex_status
+                            from
+                                capex_data_master cdm
+                            left join user_management um on
+                                cdm.capex_current_at = um.emp_no
+                            left join capex_excel_master cem on
+                            cem.id = cdm.budget_id 
+                            left join user_management um1 on
+                            cdm.capex_raised_by =um1.emp_no 
+                            where 
+                            cdm.delete_flag=false and um1.department like '%{}%' and 
+                            (cem.budget_no like '%{}%' or cem.purpose_code like '%{}%' or cdm.return_on_investment like '%{}%')""".format(
+                    department,
+                    search_query,
+                    search_query,
+                    search_query,
+                    search_query,
+                )
             # ADMIN VIEW ALL CAPEX
             case "admin_capex_view":
                 woosee = ""
                 department = ""
-            case _:
-                print("nope....")
-
-        raw_sql_query = """ select
+                raw_sql_query = """ select
                             cdm.id capex_no,
                             cem.budget_no ,
                             cdm.nature_of_requirement ,
@@ -198,14 +268,17 @@ def get_all_capex_data(request):
                             where 
                             cdm.delete_flag=false and ((cdm.capex_raised_by like '%{}%' or cdm.capex_current_at like '%{}%' and um1.department like '%{}%') and 
                             (cem.budget_no like '%{}%' or cem.purpose_code like '%{}%' or cdm.return_on_investment like '%{}%')) ;""".format(
-            woosee,
-            woosee,
-            department,
-            search_query,
-            search_query,
-            search_query,
-            search_query,
-        )
+                    woosee,
+                    woosee,
+                    department,
+                    search_query,
+                    search_query,
+                    search_query,
+                    search_query,
+                )
+            case _:
+                print("nope....")
+
         with connection.cursor() as cursor:
             cursor.execute(raw_sql_query)
             results = cursor.fetchall()
@@ -323,6 +396,7 @@ def get_by_capex_id(request, id):
             sql = """ UPDATE capex_data_master SET  approval_flow = approval_flow || %s::jsonb, capex_current_at = %s, capex_status = %s WHERE id = %s;"""
 
             def check_condition_for_corporate(approver_status):
+                row = []
                 # approved
                 if approver_status == "0":
                     if serializers.data["capex_current_at"] == "15604":
@@ -332,10 +406,9 @@ def get_by_capex_id(request, id):
                         approved_by = request.data["user_no"]
 
                         data = capex_wf_approvers(serializers.data["capex_wf_id"])
-                        row = []
                         for value in data:
                             row.append(value.split("#")[1])
-
+                        row.insert(0, raised_by)
                         capex_current_at = row[row.index(str(approved_by)) + 1]
                         return [capex_current_at, capex_wf_status[0]]
 
@@ -348,11 +421,10 @@ def get_by_capex_id(request, id):
                     justification_by = request.data["user_no"]
                     raised_by = serializers.data["capex_raised_by"]
 
-                    row = []
                     data = capex_wf_approvers(serializers.data["capex_wf_id"])
-                    row = []
                     for value in data:
                         row.append(value.split("#")[1])
+                    row.insert(0, raised_by)
                     capex_current_at = row[row.index(str(justification_by)) - 1]
                     return [capex_current_at, capex_wf_status[4]]
 
@@ -373,6 +445,7 @@ def get_by_capex_id(request, id):
                         row = []
                         for value in data:
                             row.append(value.split("#")[1])
+                        row.insert(0, raised_by)
                         capex_current_at = row[row.index(str(approved_by)) + 1]
                         return [capex_current_at, capex_wf_status[0]]
 
@@ -386,9 +459,9 @@ def get_by_capex_id(request, id):
                     raised_by = serializers.data["capex_raised_by"]
                     row = []
                     data = capex_wf_approvers(serializers.data["capex_wf_id"])
-                    row = []
                     for value in data:
                         row.append(value.split("#")[1])
+                    row.insert(0, raised_by)
                     capex_current_at = row[row.index(str(justification_by)) - 1]
                     return [capex_current_at, capex_wf_status[4]]
 
@@ -480,12 +553,17 @@ def approve_mail_ready_data(serializers, value, obj_data):
         )
         user_department = user_info["department"]
 
-        next_approver = user_details_from_emp_id(value[0])
-        next_approver_email_id = next_approver["email_id"]
-        next_approver_user_name = "{} {}".format(
-            next_approver["first_name"].capitalize(),
-            next_approver["last_name"].capitalize(),
-        )
+        next_approver = ""
+        next_approver_email_id = ""
+        next_approver_user_name = ""
+
+        if value[1] != "REJECTED":
+            next_approver = user_details_from_emp_id(value[0])
+            next_approver_email_id = next_approver["email_id"]
+            next_approver_user_name = "{} {}".format(
+                next_approver["first_name"].capitalize(),
+                next_approver["last_name"].capitalize(),
+            )
 
         data = {
             "capex_status": value[1],
@@ -530,6 +608,7 @@ def create_new_capex(request):
             if str(get_capex_flow_info["which_flow"]) == "0"
             else "for_corporate"
         )
+
         mutable_data = deepcopy(request.data)
         whose_ur_manager = json.loads(get_capex_flow_info["approver"])[0].split("#")[1]
         mutable_data["capex_current_at"] = whose_ur_manager
