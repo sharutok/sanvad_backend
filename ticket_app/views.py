@@ -35,30 +35,7 @@ def all_data(request):
     emp_no = str(request.GET["woosee"])
 
     # check if the user is admin or just user
-    _emp_no = (
-        ""
-        if (
-            emp_no == ticket_flow_user_for_systems("ticket_admin_system")
-            or emp_no == ticket_flow_user_for_infra("req1", "ticket_admin_infra")
-        )
-        else emp_no
-    )
-
-    _tkt_type = ""
-    if not _emp_no:
-        if str(emp_no) == str(ticket_flow_user_for_systems("ticket_admin_system")):
-            _tkt_type = "IT SYSTEMS(ERP ORACLE)"
-        if str(emp_no) == str(ticket_flow_user_for_infra("req1", "ticket_admin_infra")):
-            _tkt_type = "IT INFRA"
-
-    def _req_type():
-        if not _emp_no:
-            if str(_emp_no) == str(ticket_flow_user_for_systems("ticket_admin_system")):
-                return "IT SYSTEMS(ERP ORACLE)"
-            if str(_emp_no) == str(
-                ticket_flow_user_for_infra("req1", "ticket_admin_infra")
-            ):
-                return "IT INFRA"
+    _emp_no =  emp_no
 
     paginator.page_size = 10
     raw_sql_query = """
@@ -94,7 +71,6 @@ def all_data(request):
         	or requester_emp_no like '%{}%') and tkt_type like '%{}%')
          and
         	( ticket_no::text like '%{}%'
-            or tkt_type ilike '%{}%'
             or req_type ilike '%{}%'
             or tkt_title ilike '%{}%'
             or um.first_name ilike '%{}%' 
@@ -120,7 +96,6 @@ def all_data(request):
     """.format(
         _emp_no,
         _emp_no,
-        _tkt_type,
         _search_query,
         _search_query,
         _search_query,
