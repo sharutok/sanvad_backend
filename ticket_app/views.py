@@ -68,9 +68,9 @@ def all_data(request):
 			ts.id = tfu.ticket_ref_id
         	where 
         	((tkt_current_at like '%{}%' 
-        	or requester_emp_no like '%{}%') and tkt_type like '%{}%')
+        	or requester_emp_no like '%{}%'))
          and
-        	( ticket_no::text like '%{}%'
+        	( ticket_no::text ilike '%{}%'
             or req_type ilike '%{}%'
             or tkt_title ilike '%{}%'
             or um.first_name ilike '%{}%' 
@@ -726,8 +726,8 @@ def create(request):
         # whose your manager
         user_info = UserManagement.objects.get(emp_no=requester_emp_no)
         Userserializers = userManagementSerializer(user_info)
+        print(Userserializers.data)
         users_manager = Userserializers.data["manager_code"]
-
         managers_id = userManagementSerializer(
             UserManagement.objects.get(emp_no=Userserializers.data["manager_code"])
         ).data["id"]
