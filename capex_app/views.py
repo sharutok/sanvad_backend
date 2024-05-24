@@ -115,15 +115,24 @@ def get_all_budget_data(request):
                                 cem.id, cem.final_budget) t1
                             where
                             	t1.budget_id = cem.id
-                                and cem.plant like '%{}%' and cem.dept like '%{}%'
+                                and cem.plant ilike '%{}%' and cem.dept ilike '%{}%'
                                 and cem.delete_flag=false
-                                and (cem.budget_no like '%{}%' 
-                                or cem.purpose_code like '%{}%' 
-                                or cem.purpose_description like '%{}%' 
-                                or category like '%{}%' 
-                                or asset_description like '%{}%');""".format(
+                                and (
+                                    cem.budget_no ilike '%{}%' 
+                                or cem.purpose_code ilike '%{}%' 
+                                or cem.purpose_description ilike '%{}%' 
+                                or category ilike '%{}%' 
+                                or plant ilike '%{}%' 
+                                or dept ilike '%{}%' 
+                                or capex_group ilike '%{}%' 
+                                or asset_description ilike '%{}%'
+                                
+                                );""".format(
         plant_name,
         department,
+        search_query,
+        search_query,
+        search_query,
         search_query,
         search_query,
         search_query,
@@ -186,9 +195,15 @@ def get_all_capex_data(request):
                             cdm.capex_raised_by =um1.emp_no 
                             where 
                             cdm.delete_flag=false and ((cdm.capex_raised_by like '%{}%' or cdm.capex_current_at like '%{}%') and 
-                            (cem.budget_no like '%{}%' or cem.purpose_code like '%{}%' or cdm.return_on_investment like '%{}%')) ;""".format(
+                            (
+                                cdm.id::text ilike '%{}%'
+                                or cem.budget_no ilike '%{}%' 
+                                or cem.purpose_code ilike '%{}%' 
+                                or cdm.return_on_investment ilike '%{}%'
+                                )) ;""".format(
                     woosee,
                     woosee,
+                    search_query,
                     search_query,
                     search_query,
                     search_query,
@@ -229,8 +244,13 @@ def get_all_capex_data(request):
                             cdm.capex_raised_by =um1.emp_no 
                             where 
                             cdm.delete_flag=false and um1.department like '%{}%' and 
-                            (cem.budget_no like '%{}%' or cem.purpose_code like '%{}%' or cdm.return_on_investment like '%{}%')""".format(
+                            (
+                                cdm.id::text ilike '%{}%' or
+                                cem.budget_no like '%{}%' or 
+                                cem.purpose_code like '%{}%' or 
+                                cdm.return_on_investment like '%{}%')""".format(
                     department,
+                    search_query,
                     search_query,
                     search_query,
                     search_query,
@@ -267,10 +287,15 @@ def get_all_capex_data(request):
                             cdm.capex_raised_by =um1.emp_no 
                             where 
                             cdm.delete_flag=false and ((cdm.capex_raised_by like '%{}%' or cdm.capex_current_at like '%{}%' and um1.department like '%{}%') and 
-                            (cem.budget_no like '%{}%' or cem.purpose_code like '%{}%' or cdm.return_on_investment like '%{}%')) ;""".format(
+                            (
+                                cdm.id::text ilike '%{}%' 
+                                or cem.budget_no like '%{}%' 
+                                or cem.purpose_code like '%{}%' 
+                                or cdm.return_on_investment like '%{}%')) ;""".format(
                     woosee,
                     woosee,
                     department,
+                    search_query,
                     search_query,
                     search_query,
                     search_query,
@@ -1077,106 +1102,30 @@ def generate_capex_final_pdf(request):
             )
         )
         approval_flow = json.loads(capex_data[0]["approval_flow"])
-
         replacements = {
-            "{{Capex_Id}}": str(capex_data[0]["id"]),
-            "{{Date}}": datetime.now().strftime("%d-%m-%Y"),
-            "{{Purpose_Description}}": budget_data[0]["purpose_description"].title(),
-            "{{location}}": budget_data[0]["plant"].title(),
-            "{{Capex_Group}}": capex_data[0]["flow_type"].title(),
-            "{{Asset_Description}}": budget_data[0]["asset_description"].title(),
-            "{{Capex_Raised_By}}": raised_by.lower(),
-            "{{Flow_Type}}": str(capex_data[0]["flow_type"])[4:].title(),
-            "{{Dept}}": budget_data[0]["dept"].lower(),
-            "{{Site_Delivery_Date}}": str(capex_data[0]["site_delivery_date"])[0:10],
-            "{{Nature_Of_Requirement}}": capex_data[0]["nature_of_requirement"].title(),
-            "{{Purpose}}": capex_data[0]["purpose"].title(),
-            "{{Capex_For_Which_Department}}": (
-                capex_data[0]["capex_for_which_department"].lower()
-                if capex_data[0]["capex_for_which_department"]
-                else ""
-            ),
-            "{{Budget_Type}}": (
+            "Capex_Id": str(capex_data[0]["id"]),
+            "Date": datetime.now().strftime("%d-%m-%Y"),
+            "Key User": raised_by.lower(),
+            "Department": budget_data[0]["dept"].lower(),
+            "Capex Group": capex_data[0]["flow_type"].title(),
+            "Nature of Requirement": capex_data[0]["nature_of_requirement"].title(),
+            "Purpose": capex_data[0]["purpose"].title(),
+            "Location": budget_data[0]["plant"].title(),
+            "Functional Utility/Performance/Usefulness": capex_data[0]["comment1"],
+            "Description Of Asset": budget_data[0]["asset_description"].title(),
+            "Supplier's Name with Address": capex_data[0]["comment3"],
+            "Total Landed Cost(Rs. in Lacs)": str(capex_data[0]["total_cost"]),
+            "Expected Date of Delivery at Site": str(capex_data[0]["site_delivery_date"])[0:10],
+            "Budget Type": (
                 capex_data[0]["budget_type"].lower()
                 if capex_data[0]["budget_type"]
                 else "Non Budgeted"
             ),
-            "{{Total_Cost}}": str(capex_data[0]["total_cost"]),
-            "{{Comment1}}": capex_data[0]["comment1"],
-            "{{Comment3}}": capex_data[0]["comment3"],
-            "{{approver1_name}}": str(approval_flow[0]["user_name"]).title(),
-            "{{approver1_comment}}": approval_flow[0]["comments"],
-            "{{approver1_status}}": str(
-                capex_wf_status[int(approval_flow[0]["status"]) + 1]
-            ).title(),
-            "{{approver1_date}}": datetime.strptime(
-                str(approval_flow[0]["time"]), "%A, %d %b %Y %H:%M"
-            ).strftime("%d-%m-%Y"),
-            "{{approver2_name}}": str(approval_flow[1]["user_name"]).title(),
-            "{{approver2_comment}}": approval_flow[1]["comments"],
-            "{{approver2_status}}": str(
-                capex_wf_status[int(approval_flow[1]["status"]) + 1]
-            ).title(),
-            "{{approver2_date}}": datetime.strptime(
-                str(approval_flow[1]["time"]), "%A, %d %b %Y %H:%M"
-            ).strftime("%d-%m-%Y"),
-            "{{approver3_name}}": str(approval_flow[2]["user_name"]).title(),
-            "{{approver3_comment}}": approval_flow[2]["comments"],
-            "{{approver3_status}}": str(
-                capex_wf_status[int(approval_flow[2]["status"]) + 1]
-            ).title(),
-            "{{approver3_date}}": datetime.strptime(
-                str(approval_flow[2]["time"]), "%A, %d %b %Y %H:%M"
-            ).strftime("%d-%m-%Y"),
-            "{{approver4_name}}": (
-                str(approval_flow[3].get("user_name")).title()
-                if len(approval_flow) > 3
-                else ""
-            ),
-            "{{approver4_comment}}": (
-                approval_flow[3].get("comments") if len(approval_flow) > 3 else ""
-            ),
-            "{{approver4_status}}": (
-                str(capex_wf_status[int(approval_flow[3].get("status")) + 1]).title()
-                if len(approval_flow) > 3
-                else ""
-            ),
-            "{{approver4_date}}": (
-                datetime.strptime(
-                    str(approval_flow[3].get("time")), "%A, %d %b %Y %H:%M"
-                ).strftime("%d-%m-%Y")
-                if len(approval_flow) > 3
-                else ""
-            ),
+            "approval_flow": approval_flow,
         }
 
-        def replace_placeholders(html_file, replacements):
-            with open(html_file, "r") as f:
-                html_content = f.read()
-
-            for key, value in replacements.items():
-                html_content = html_content.replace(key, value)
-
-            return html_content
-
-        html_file = "capex.html"
-        updated_html_content = replace_placeholders(html_file, replacements)
-
-        output_html_file = "intermediate.html"
-        with open(output_html_file, "w") as f:
-            f.write(updated_html_content)
-
-        print("Replacement completed. Output saved to", output_html_file)
-        tkt_link_prefix = os.getenv("PATH_TO_WKHTMLTOPDF")
-        path_to_wkhtmltopdf = r"{}".format(tkt_link_prefix)
-        path_to_file = "intermediate.html"
-        config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
-        pdfkit.from_file(path_to_file, output_path="capex.pdf", configuration=config)
-
-        with open("capex.pdf", "rb") as pdf_file:
-            response = HttpResponse(pdf_file.read(), content_type="application/pdf")
-            response["Content-Disposition"] = "inline; filename=capex.pdf"
-            return response
-        return Response({"mess": "ok"})
+      
+        print(replacements)
+        return Response({"replacements":replacements,"mess": "ok"})
     except Exception as e:
         return Response({"mess": e})
