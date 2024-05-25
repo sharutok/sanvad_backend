@@ -1102,30 +1102,32 @@ def generate_capex_final_pdf(request):
             )
         )
         approval_flow = json.loads(capex_data[0]["approval_flow"])
+
         replacements = {
             "Capex_Id": str(capex_data[0]["id"]),
             "Date": datetime.now().strftime("%d-%m-%Y"),
-            "Key User": raised_by.lower(),
-            "Department": budget_data[0]["dept"].lower(),
-            "Capex Group": capex_data[0]["flow_type"].title(),
-            "Nature of Requirement": capex_data[0]["nature_of_requirement"].title(),
-            "Purpose": capex_data[0]["purpose"].title(),
-            "Location": budget_data[0]["plant"].title(),
-            "Functional Utility/Performance/Usefulness": capex_data[0]["comment1"],
-            "Description Of Asset": budget_data[0]["asset_description"].title(),
-            "Supplier's Name with Address": capex_data[0]["comment3"],
-            "Total Landed Cost(Rs. in Lacs)": str(capex_data[0]["total_cost"]),
-            "Expected Date of Delivery at Site": str(capex_data[0]["site_delivery_date"])[0:10],
+            "Key User": raised_by.upper(),
+            "Department": budget_data[0]["dept"].upper(),
+            "Capex Group": capex_data[0]["flow_type"].upper(),
+            "Nature of Requirement": capex_data[0]["nature_of_requirement"].upper(),
+            "Purpose": capex_data[0]["purpose"].upper(),
+            "Location": budget_data[0]["plant"].upper(),
+            "Functional Utility/Performance/Usefulness": capex_data[0][
+                "comment1"
+            ].upper(),
+            "Description Of Asset": budget_data[0]["asset_description"].upper(),
+            "Supplier's Name with Address": capex_data[0]["comment3"].upper(),
+            "total_cost": capex_data[0]["total_cost"],
+            "Expected Date of Delivery at Site": str(
+                capex_data[0]["site_delivery_date"]
+            )[0:10],
             "Budget Type": (
-                capex_data[0]["budget_type"].lower()
+                capex_data[0]["budget_type"].upper()
                 if capex_data[0]["budget_type"]
                 else "Non Budgeted"
             ),
             "approval_flow": approval_flow,
         }
-
-      
-        print(replacements)
         return Response({"replacements":replacements,"mess": "ok"})
     except Exception as e:
         return Response({"mess": e})
