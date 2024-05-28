@@ -642,5 +642,7 @@ def delete_data_in_yammer(request):
         for f in files:
             os.remove(f)
         print("after file count {}".format(len(glob.glob(file_path))))
+        return Response(True)
     except Exception as e:
         print(e)
+        return Response(False)
