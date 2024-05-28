@@ -25,7 +25,7 @@ urlpatterns = [
     ),
     path("which/frame/", which_frame, name="which-frame"),
     path(
-        "delete/yammer/old/files", delete_data_in_yammer, name="delete-data-in-yammer"
+        "delete/yammer/old/files/", delete_data_in_yammer, name="delete-data-in-yammer"
     ),
 ]
 
