@@ -125,9 +125,8 @@ def get_all_budget_data(request):
                                 or plant ilike '%{}%' 
                                 or dept ilike '%{}%' 
                                 or capex_group ilike '%{}%' 
-                                or asset_description ilike '%{}%'
-                                
-                                );""".format(
+                                or asset_description ilike '%{}%')
+                                order by created_at desc;""".format(
         plant_name,
         department,
         search_query,
@@ -168,7 +167,7 @@ def get_all_capex_data(request):
             case "approve_capex_view":
                 woosee = request.GET["woosee"]
                 department = ""
-                raw_sql_query = """ select
+                raw_sql_query = """select
                             cdm.id capex_no,
                             cem.budget_no ,
                             cdm.nature_of_requirement ,
@@ -200,7 +199,7 @@ def get_all_capex_data(request):
                                 or cem.budget_no ilike '%{}%' 
                                 or cem.purpose_code ilike '%{}%' 
                                 or cdm.return_on_investment ilike '%{}%'
-                                )) ;""".format(
+                                )) order by cdm.created_at desc ;""".format(
                     woosee,
                     woosee,
                     search_query,
@@ -248,7 +247,7 @@ def get_all_capex_data(request):
                                 cdm.id::text ilike '%{}%' or
                                 cem.budget_no like '%{}%' or 
                                 cem.purpose_code like '%{}%' or 
-                                cdm.return_on_investment like '%{}%')""".format(
+                                cdm.return_on_investment like '%{}%') order by cdm.created_at desc""".format(
                     department,
                     search_query,
                     search_query,
@@ -291,7 +290,7 @@ def get_all_capex_data(request):
                                 cdm.id::text ilike '%{}%' 
                                 or cem.budget_no like '%{}%' 
                                 or cem.purpose_code like '%{}%' 
-                                or cdm.return_on_investment like '%{}%')) ;""".format(
+                                or cdm.return_on_investment like '%{}%')) order by cdm.created_at desc ;""".format(
                     woosee,
                     woosee,
                     department,

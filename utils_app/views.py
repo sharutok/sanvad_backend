@@ -1,39 +1,38 @@
-from ftplib import FTP
-from django.core.mail import send_mail
-from django.shortcuts import render
-import smtplib
-from dotenv import load_dotenv
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from django.db.models import Q
-from django.db import connection
-from sanvad_app.serializers import userManagementSerializer
-from django.shortcuts import render
-import pandas
-from rest_framework import status
-import json
-from rest_framework.response import Response
-from rest_framework.decorators import api_view
-import mimetypes
-from django.http import HttpResponse
-from wsgiref.util import FileWrapper
-from sanvad_project.settings import r
-from django.http import FileResponse
-from django.conf import settings
-import os
-from django.db.models import F
 import datetime
-from utils_app.serializers import AnnounsmentSerializer
-import redis
-from utils_app.models import Announsment
-from sanvad_app.models import UserManagement
-from ticket_app.models import TicketSystemModel
-from conference_app.models import ConferenceBooking
-from visitors_app.models import VisitorsManagement
-from capex_app.models import Capex, Capex1
-from sanvad_app.models import EmployeeMappings
+import glob
+import json
+import mimetypes
+import os
 import random
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from ftplib import FTP
+from wsgiref.util import FileWrapper
+
+import pandas
+import redis
+from capex_app.models import Capex, Capex1
+from conference_app.models import ConferenceBooking
+from django.conf import settings
+from django.core.mail import send_mail
+from django.db import connection
+from django.db.models import F, Q
+from django.http import FileResponse, HttpResponse
+from django.shortcuts import render
+from dotenv import load_dotenv
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from sanvad_app.models import EmployeeMappings, UserManagement
+from sanvad_app.serializers import userManagementSerializer
+from ticket_app.models import TicketSystemModel
 from ticket_app.views import user_details_from_emp_id
+from utils_app.models import Announsment
+from utils_app.serializers import AnnounsmentSerializer
+from visitors_app.models import VisitorsManagement
+
+from sanvad_project.settings import r
 
 # Create your views here.
 
@@ -632,3 +631,16 @@ def common_mail_template(to_email: list, html, subject):
     except Exception as e:
         print("Error in sending email:", e)
         return Response("Error in sending email", status=500)
+
+@api_view(['GET'])
+def delete_data_in_yammer(request):
+    try:
+        current_directory = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(current_directory, "../media", "yammer/*")
+        print("before file count {}".format(len(glob.glob(file_path))))
+        files = glob.glob(file_path)
+        for f in files:
+            os.remove(f)
+        print("after file count {}".format(len(glob.glob(file_path))))
+    except Exception as e:
+        print(e)

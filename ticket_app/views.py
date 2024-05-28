@@ -35,7 +35,7 @@ def all_data(request):
     emp_no = str(request.GET["woosee"])
 
     # check if the user is admin or just user
-    _emp_no =  emp_no
+    _emp_no = emp_no
 
     paginator.page_size = 10
     raw_sql_query = """
@@ -44,7 +44,9 @@ def all_data(request):
           case 
         	when tkt_current_at='00547' and jsonb_array_length(approval_flow)=0 then 'MANAGER' 
         	when tkt_current_at='00547' and jsonb_array_length(approval_flow)=2 then 'IT HEAD' 
-        	when tkt_current_at='14383' and jsonb_array_length(approval_flow)=1 then 'TICKET ADMIN' 
+        	when tkt_current_at='14383' and jsonb_array_length(approval_flow)=1 then 'TICKET ADMIN SYSTEMS' 
+        	when tkt_current_at='15537' and jsonb_array_length(approval_flow)=1 and tkt_type='IT INFRA' and req_type='DATACENTER / VPN ACCESS' then 'TICKET ADMIN INFRA' 
+        	when tkt_current_at='15537' and jsonb_array_length(approval_flow)=0 and tkt_type='IT INFRA' and req_type='ISSUES' then 'TICKET ADMIN INFRA' 
         	else ''
         end as ROLE,
         concat(um.first_name, ' ',
@@ -305,7 +307,6 @@ def data_by_id(request, id):
                         # )
                         # APPROVED
                         if user_status == "0":
-
                             if len(serializers.data["approval_flow"]) >= 3:
                                 tkt_status = ticket_wf_status[0]
                                 tkt_current_at = nextflow
@@ -330,10 +331,9 @@ def data_by_id(request, id):
                         tkt_current_at = ""
                         # APPROVED
                         if user_status == "0":
-                            if len(serializers.data["approval_flow"]) == 3:
-                                tkt_status = ticket_wf_status[3]
-                                tkt_current_at = None
-                                obj_data["status"] = "2"
+                            if len(serializers.data["approval_flow"]) >= 3:
+                                tkt_status = ticket_wf_status[0]
+                                tkt_current_at = nextflow
                             else:
                                 tkt_status = ticket_wf_status[0]
                                 tkt_current_at = nextflow
@@ -341,6 +341,13 @@ def data_by_id(request, id):
                         if user_status == "1":
                             tkt_status = ticket_wf_status[2]
                             tkt_current_at = None
+
+                        # CLOSED
+                        if user_status == "2":
+                            tkt_status = ticket_wf_status[3]
+                            tkt_current_at = None
+                            obj_data["status"] = "2"
+
                         return [tkt_status, tkt_current_at]
 
                     obj = TicketSystemModel.objects.get(id=request.data["id"])
@@ -353,20 +360,24 @@ def data_by_id(request, id):
                             case "ISSUES":
                                 # APPROVED
                                 if user_status == "0":
-                                    if len(serializers.data["approval_flow"]) == 0:
+                                    if len(serializers.data["approval_flow"]) >= 3:
                                         tkt_status = ticket_wf_status[0]
                                         tkt_current_at = nextflow
-                                        # tkt_current_at = "C0072"
-                                    if len(serializers.data["approval_flow"]) == 1:
-                                        obj_data["status"] = "2"
-                                        tkt_status = ticket_wf_status[3]
-                                        tkt_current_at = None
+                                    else:
+                                        tkt_status = ticket_wf_status[0]
+                                        tkt_current_at = nextflow
                                 # REJECTED
                                 if user_status == "1":
                                     tkt_status = ticket_wf_status[2]
                                     tkt_current_at = None
 
-                        return [tkt_status, tkt_current_at]
+                                # CLOSED
+                                if user_status == "2":
+                                    tkt_status = ticket_wf_status[3]
+                                    tkt_current_at = None
+                                    obj_data["status"] = "2"
+
+                                return [tkt_status, tkt_current_at]
 
                     # get ticket data based on id
 
@@ -378,7 +389,6 @@ def data_by_id(request, id):
                             print("approval_flow_execute", e)
 
                     # IF TICKET TYPE IS INFRA
-
                     match request.data["tkt_type"]:
                         case "IT INFRA":
                             match request.data["req_type"]:
@@ -392,7 +402,6 @@ def data_by_id(request, id):
                                             assign_ticket_to_user_id = re.split(
                                                 "-", assign_ticket_to_user
                                             )[0]
-
                                             val = res_body_for_infra_tkt_wf2(
                                                 request.data["approver_status"],
                                                 assign_ticket_to_user_id,
@@ -407,9 +416,41 @@ def data_by_id(request, id):
                                             )
                                             obj_data["next_approver"] = val[1]
 
+                                            # FILE UPLAOD LOGIC
                                             if serializers.is_valid():
-                                                serializers.save()
-                                            approval_flow_execute(obj_data)
+                                                obj = serializers.save()
+                                                n = str(request.data["file_count"])
+                                                if n >= "0":
+                                                    for i in range(0, int(n)):
+                                                        file = "file{}".format(i + 1)
+                                                        data = {
+                                                            "ticket_ref_id": obj.id,
+                                                            "user_file": request.data[
+                                                                file
+                                                            ],
+                                                            "filename": request.data[
+                                                                file
+                                                            ],
+                                                        }
+                                                        queryset = (
+                                                            TicketFileUploadSerializer(
+                                                                data=data
+                                                            )
+                                                        )
+                                                        if queryset.is_valid():
+                                                            queryset.save()
+                                                        else:
+                                                            print(
+                                                                "queryset.errors",
+                                                                queryset.errors,
+                                                            )
+                                                approval_flow_execute(obj_data)
+                                                send_mail_later(
+                                                    obj_data=obj_data,
+                                                    instance=obj,
+                                                )
+                                            else:
+                                                print("error in infra admin issues")
 
                                         # ticket is with technical user
                                         case 1:
@@ -425,10 +466,43 @@ def data_by_id(request, id):
                                                 },
                                             )
                                             obj_data["next_approver"] = val[1]
-
+                                            # FILE UPLAOD LOGIC
                                             if serializers.is_valid():
-                                                serializers.save()
-                                            approval_flow_execute(obj_data)
+                                                obj = serializers.save()
+                                                n = str(request.data["file_count"])
+                                                if n >= "0":
+                                                    for i in range(0, int(n)):
+                                                        file = "file{}".format(i + 1)
+                                                        data = {
+                                                            "ticket_ref_id": obj.id,
+                                                            "user_file": request.data[
+                                                                file
+                                                            ],
+                                                            "filename": request.data[
+                                                                file
+                                                            ],
+                                                        }
+                                                        queryset = (
+                                                            TicketFileUploadSerializer(
+                                                                data=data
+                                                            )
+                                                        )
+                                                        if queryset.is_valid():
+                                                            queryset.save()
+                                                        else:
+                                                            print(
+                                                                "queryset.errors",
+                                                                queryset.errors,
+                                                            )
+                                                approval_flow_execute(obj_data)
+                                                send_mail_later(
+                                                    obj_data=obj_data,
+                                                    instance=obj,
+                                                )
+                                            else:
+                                                print(
+                                                    "error in infra tecnicaluser issues"
+                                                )
 
                                 case "DATACENTER / VPN ACCESS":
                                     match len(serializers.data["approval_flow"]):
@@ -454,6 +528,10 @@ def data_by_id(request, id):
                                                 serializers.save()
 
                                             approval_flow_execute(obj_data)
+                                            send_mail_later(
+                                                obj_data=obj_data,
+                                                instance=obj,
+                                            )
 
                                         # ticket at ticket admin
                                         case 1:
@@ -474,9 +552,39 @@ def data_by_id(request, id):
                                             )
                                             obj_data["next_approver"] = val[1]
 
+                                            # FILE UPLAOD LOGIC
                                             if serializers.is_valid():
-                                                serializers.save()
+                                                obj = serializers.save()
+                                                n = str(request.data["file_count"])
+                                                if n >= "0":
+                                                    for i in range(0, int(n)):
+                                                        file = "file{}".format(i + 1)
+                                                        data = {
+                                                            "ticket_ref_id": obj.id,
+                                                            "user_file": request.data[
+                                                                file
+                                                            ],
+                                                            "filename": request.data[
+                                                                file
+                                                            ],
+                                                        }
+                                                        queryset = (
+                                                            TicketFileUploadSerializer(
+                                                                data=data
+                                                            )
+                                                        )
+                                                        if queryset.is_valid():
+                                                            queryset.save()
+                                                        else:
+                                                            print(
+                                                                "queryset.errors",
+                                                                queryset.errors,
+                                                            )
                                             approval_flow_execute(obj_data)
+                                            send_mail_later(
+                                                obj_data=obj_data,
+                                                instance=obj,
+                                            )
 
                                         # ticket is at it head
                                         case 2:
@@ -504,24 +612,62 @@ def data_by_id(request, id):
                                             if serializers.is_valid():
                                                 serializers.save()
                                             approval_flow_execute(obj_data)
+                                            send_mail_later(
+                                                obj_data=obj_data,
+                                                instance=obj,
+                                            )
 
                                             # ticket is with technical user
-                                        case 3:
-                                            val = res_body_for_infr_tkt_wf1(
-                                                request.data["approver_status"],
-                                                "",
-                                            )
-                                            serializers = TicketSytemSerializer(
-                                                obj,
-                                                data={
-                                                    "tkt_status": val[0],
-                                                    "tkt_current_at": val[1],
-                                                },
-                                            )
-                                            obj_data["next_approver"] = None
-                                            if serializers.is_valid():
-                                                serializers.save()
-                                            approval_flow_execute(obj_data)
+                                        case _:
+                                            if (
+                                                len(serializers.data["approval_flow"])
+                                                >= 2
+                                            ):
+                                                val = res_body_for_infr_tkt_wf1(
+                                                    request.data["approver_status"],
+                                                    "",
+                                                )
+                                                serializers = TicketSytemSerializer(
+                                                    obj,
+                                                    data={
+                                                        "tkt_status": val[0],
+                                                        "tkt_current_at": val[1],
+                                                    },
+                                                )
+                                                obj_data["next_approver"] = None
+                                                # FILE UPLAOD LOGIC
+                                                if serializers.is_valid():
+                                                    obj = serializers.save()
+                                                    n = str(request.data["file_count"])
+                                                    if n >= "0":
+                                                        for i in range(0, int(n)):
+                                                            file = "file{}".format(
+                                                                i + 1
+                                                            )
+                                                            data = {
+                                                                "ticket_ref_id": obj.id,
+                                                                "user_file": request.data[
+                                                                    file
+                                                                ],
+                                                                "filename": request.data[
+                                                                    file
+                                                                ],
+                                                            }
+                                                            queryset = TicketFileUploadSerializer(
+                                                                data=data
+                                                            )
+                                                            if queryset.is_valid():
+                                                                queryset.save()
+                                                            else:
+                                                                print(
+                                                                    "queryset.errors",
+                                                                    queryset.errors,
+                                                                )
+                                                approval_flow_execute(obj_data)
+                                                send_mail_later(
+                                                    obj_data=obj_data,
+                                                    instance=obj,
+                                                )
 
                         case _:
                             match len(serializers.data["approval_flow"]):
@@ -940,8 +1086,10 @@ def ticket_components_view_access(woosee, request, qreuecs):
         "close_radio_btn": False,
     }
     if not qreuecs:
+        
         components["close_radio_btn"] = (
-            True if len(request["approval_flow"]) >= 3 else False
+            True 
+            # if len(request["approval_flow"]) >= 3 else False
         )
 
         components["assign_ticket_comp"] = (
@@ -955,7 +1103,7 @@ def ticket_components_view_access(woosee, request, qreuecs):
                 or (
                     str(ticket_flow_user_for_infra("req1", "ticket_admin_infra"))
                     == str(woosee)
-                    and len(request["approval_flow"]) == 1
+                    and len(request["approval_flow"]) == 0
                 )
             )
             else False

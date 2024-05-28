@@ -10,6 +10,7 @@ from utils_app.views import (
     wish_birthday,
     new_user_creation_mail,
     which_frame,
+    delete_data_in_yammer,
 )
 
 urlpatterns = [
@@ -23,6 +24,9 @@ urlpatterns = [
         "new/user/creation/mail/", new_user_creation_mail, name="new-user-creation-mail"
     ),
     path("which/frame/", which_frame, name="which-frame"),
+    path(
+        "delete/yammer/old/files", delete_data_in_yammer, name="delete-data-in-yammer"
+    ),
 ]
 
 # urlpatterns += staticfiles_urlpatterns()
