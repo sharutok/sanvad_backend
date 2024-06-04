@@ -211,10 +211,7 @@ def get_all_capex_data(request):
             # RESPECTIVE DEPARTMENT CAPEX
             case "dept_capex_view":
                 department = user_details["department"]
-                print(
-                    woosee,
-                    department,
-                )
+                plant_name = user_details["plant_name"]
                 raw_sql_query = """ 
                             select
                             cdm.id capex_no,
@@ -242,13 +239,13 @@ def get_all_capex_data(request):
                             left join user_management um1 on
                             cdm.capex_raised_by =um1.emp_no 
                             where 
-                            cdm.delete_flag=false and um1.department like '%{}%' and 
+                            cdm.delete_flag=false and um1.department like '%{}%' and um1.plant_name like '%{}%'  and 
                             (
                                 cdm.id::text ilike '%{}%' or
                                 cem.budget_no like '%{}%' or 
                                 cem.purpose_code like '%{}%' or 
                                 cdm.return_on_investment like '%{}%') order by cdm.created_at desc""".format(
-                    department,
+                    department,plant_name,
                     search_query,
                     search_query,
                     search_query,
