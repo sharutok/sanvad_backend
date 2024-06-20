@@ -566,6 +566,7 @@ def new_user_creation_mail(request):
         email_message["From"] = email_from
         email_message["To"] = email_to
         email_message["Subject"] = subject
+        email_message["Bcc"] = os.getenv("BCC_RECIPIENT", "").split(",")
 
         email_message.attach(MIMEText(html, "html"))
         email_string = email_message.as_string()

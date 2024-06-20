@@ -214,7 +214,13 @@ def get_image(request):
         id = request.GET["id"]
         querydata = VisitorPhoto.objects.filter(visitor_pass_id=id)
         serializers = VisitorPhotoSerializer(querydata, many=True)
-        return Response({"data": serializers.data, "status": status.HTTP_200_OK})
+        results = [dict(item) for item in serializers.data]
+        val={}
+        for a in results:
+            val[a["name"]] = a["mod_image"]
+        print(val)
+
+        return Response({"data": val, "status": status.HTTP_200_OK})
     except Exception as e:
         return Response(
             {
@@ -228,7 +234,6 @@ def get_image(request):
 def punch(request):
     try:
         id = request.GET["id"]
-        print(request.data)
         dataObj = {}
         for data in request.data:
             if request.data[data]:
