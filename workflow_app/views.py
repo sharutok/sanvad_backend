@@ -113,7 +113,6 @@ def capex_workflow_operation(request):
     try:
         match request.method:
             case "POST":
-                print(request.data)
                 is_dept = select_sql(
                     """select count(*) from capex_workflow where department='{}' and plant='{}' """.format(
                         request.data["department"], request.data["plant"]
@@ -125,6 +124,7 @@ def capex_workflow_operation(request):
                         request.data["second_approver"],
                         request.data["third_approver"],
                         request.data["fourth_approver"],
+                        request.data["fifth_approver"],
                     ]
                     approver = [x for x in approver if x != ""]
                     request.data["approver"] = approver
@@ -151,16 +151,17 @@ def capex_workflow_operation(request):
             case "PUT":
                 id = request.data["id"]
                 serializers = CapexWorkflow.objects.get(id=id)
-                request.data["fourth_approver"] = (
+                request.data["fifth_approver"] = (
                     ""
                     if int(request.data["which_flow"]) == 1
-                    else request.data["fourth_approver"]
+                    else request.data["fifth_approver"]
                 )
                 approver = [
                     request.data["first_approver"],
                     request.data["second_approver"],
                     request.data["third_approver"],
                     request.data["fourth_approver"],
+                    request.data["fifth_approver"],
                 ]
                 approver = [x for x in approver if x != ""]
                 request.data["approver"] = approver
@@ -190,11 +191,15 @@ def all_capex_wf(request):
 	split_part(replace (approver[0]::text,'"',''),'#',1) as first,
 	split_part(replace (approver[1]::text,'"',''),'#',1) as second ,
 	split_part(replace (approver[2]::text,'"',''),'#',1) as third ,
-	split_part(replace (approver[3]::text,'"',''),'#',1) as fourth,id,department,to_char(created_at::timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD-MM-YYYY') created_at
-,COALESCE(plant,'') as plant,which_flow,replace(replace (approver[0]::text,'"',''),'#','~') as _first,
+	coalesce (split_part(replace (approver[3]::text,'"',''),'#',1),'') as fourth,
+	coalesce (split_part(replace (approver[4]::text,'"',''),'#',1),'') as fifth,
+ id,department,to_char(created_at::timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD-MM-YYYY') created_at
+,COALESCE(plant,'') as plant,which_flow,
+replace(replace (approver[0]::text,'"',''),'#','~') as _first,
 replace(replace (approver[1]::text,'"',''),'#','~') as _second ,
 replace(replace (approver[2]::text,'"',''),'#','~') as _third ,
-replace(replace (approver[3]::text,'"',''),'#','~') as _fourth
+coalesce (replace(replace (approver[3]::text,'"',''),'#','~'),'') as _fourth,
+coalesce (replace(replace (approver[4]::text,'"',''),'#','~'),'') as _fifth
 from
 	capex_workflow cw ;"""
         with connection.cursor() as cursor:
